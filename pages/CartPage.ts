@@ -1,5 +1,7 @@
-import { Page, Locator, expect } from '@playwright/test';
+import { Page, Locator } from '@playwright/test';
 import { BasePage } from './BasePage';
+import { CheckoutPage } from './CheckoutPage';
+import { LoginPage } from './LoginPage';
 
 export class CartPage extends BasePage {
   constructor(page: Page) {
@@ -8,43 +10,75 @@ export class CartPage extends BasePage {
 
   // ========== SELECTORS ==========
 
-  get cartHeading(): Locator {
-    return this.page.getByText(/shopping cart/i);
-  }
-
+  // An <a> without href, so it has no link role.
   get proceedToCheckoutButton(): Locator {
-    return this.page.getByRole('link', { name: /proceed to checkout/i });
+    return this.page.getByText('Proceed To Checkout', { exact: true });
   }
 
   get emptyCartMessage(): Locator {
-    return this.page.getByText(/cart is empty/i);
+    return this.page.getByText('Cart is empty!', { exact: true });
   }
 
   cartItemRow(productName: string): Locator {
-    return this.page.getByRole('row').filter({ hasText: new RegExp(productName, 'i') }).first();
+    return this.page.getByRole('row').filter({
+      has: this.page.getByRole('heading', { name: productName, exact: true }),
+    });
   }
 
+  // The cells have no headers association, so they are identified by their column class.
+  cartItemPrice(productName: string): Locator {
+    return this.cartItemRow(productName).locator('.cart_price');
+  }
+
+  cartItemQuantity(productName: string): Locator {
+    return this.cartItemRow(productName).locator('.cart_quantity');
+  }
+
+  cartItemTotal(productName: string): Locator {
+    return this.cartItemRow(productName).locator('.cart_total');
+  }
+
+  // Icon-only <a> with no href, text or label.
   removeButton(productName: string): Locator {
-    const row = this.cartItemRow(productName);
-    return row.getByRole('link', { name: /remove|delete/i })
-      .or(row.getByRole('button', { name: /remove|delete/i }))
-      .or(row.locator('a.cart_quantity_delete, button.cart_quantity_delete, a[class*="delete"], button[class*="delete"]'))
-      .first();
+    return this.cartItemRow(productName).locator('.cart_quantity_delete');
+  }
+
+  // Shown instead of the checkout page when a guest proceeds. Bootstrap modal without role="dialog".
+  get checkoutModal(): Locator {
+    return this.page.locator('#checkoutModal');
+  }
+
+  get checkoutModalMessage(): Locator {
+    return this.checkoutModal.getByText('Register / Login account to proceed on checkout.', { exact: true });
+  }
+
+  get checkoutModalLoginLink(): Locator {
+    return this.checkoutModal.getByRole('link', { name: 'Register / Login', exact: true });
   }
 
   // ========== ACTIONS ==========
 
   async removeProduct(productName: string): Promise<void> {
     await this.removeButton(productName).click();
+    await this.cartItemRow(productName).waitFor({ state: 'hidden' });
   }
 
-  async proceedToCheckout(): Promise<void> {
+  async proceedToCheckout(): Promise<CheckoutPage> {
     await this.proceedToCheckoutButton.click();
+    await this.page.waitForURL((url) => url.pathname === '/checkout');
+    await this.handleCookieConsent();
+    return new CheckoutPage(this.page);
   }
 
-  async removeProductAndWait(productName: string): Promise<void> {
-    await this.removeProduct(productName);
-    await expect(this.cartItemRow(productName)).toBeHidden();
+  async proceedToCheckoutAsGuest(): Promise<void> {
+    await this.proceedToCheckoutButton.click();
+    await this.checkoutModal.waitFor({ state: 'visible' });
+  }
+
+  async goToLoginFromCheckoutModal(): Promise<LoginPage> {
+    await this.checkoutModalLoginLink.click();
+    await this.page.waitForURL((url) => url.pathname === '/login');
+    await this.handleCookieConsent();
+    return new LoginPage(this.page);
   }
 }
-

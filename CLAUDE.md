@@ -6,7 +6,7 @@ Guidance for Claude Code when working in this repository.
 
 A portfolio project showcasing **Playwright E2E testing done to professional standards**. It uses TypeScript with `@playwright/test` and tests the public demo shop https://automationexercise.com, using the Page Object Model and custom fixtures.
 
-Scope is browser E2E only. API, unit and contract testing are intentionally excluded (see README "API Testing Philosophy"). Don't add `request`-fixture API tests here.
+Scope is browser E2E only. API, unit and contract testing are intentionally excluded (see README "API Testing Philosophy"). The site's API is used for **test setup only** (creating and deleting accounts through `api/`). Don't add tests that assert on API responses.
 
 ## Commands
 
@@ -19,6 +19,8 @@ npm run test:chrome                    # --project=chrome  (what CI runs)
 npm run test:firefox                   # --project=firefox
 npm run test:safari                    # --project=safari  (WebKit)
 npm run test:headed                    # watch it run
+npm run test:smoke                     # --grep @smoke
+npm run test:regression                # --grep @regression
 
 npx playwright test tests/cart.spec.ts             # one file
 npx playwright test tests/cart.spec.ts:10          # one test by line
@@ -50,14 +52,20 @@ npm run test:percy                     # Percy visual tests, needs PERCY_TOKEN
 
 ```
 playwright.config.ts
+api/
+  AccountApiClient.ts    # typed client for createAccount / verifyLogin / deleteAccount (setup only)
 tests/
-  fixtures.ts            # extended `test` + `expect`, page setup, page-object fixtures
+  fixtures.ts            # `test`, `authenticatedTest`, `expect`; page setup, page-object and account fixtures
   <feature>.spec.ts      # one spec per feature area
 pages/
-  BasePage.ts            # goto(), cookie-consent handling
-  HomePage.ts  ProductsPage.ts  CartPage.ts  LoginPage.ts  ContactPage.ts
+  BasePage.ts            # goto(), cookie-consent handling, waitForImageHeavyPage()
+  HomePage.ts  ProductsPage.ts  CartPage.ts  LoginPage.ts  ContactPage.ts      # have fixtures
+  SignupPage.ts  AccountCreatedPage.ts  AccountDeletedPage.ts  ProductDetailsPage.ts
+  CheckoutPage.ts  PaymentPage.ts  OrderConfirmationPage.ts                    # reached through journeys only
+  components/
+    CartModal.ts         # add-to-cart confirmation shared by listing and details pages
 test-data/
-  TestDataFactory.ts     # every test input comes from here
+  TestDataFactory.ts     # every test input comes from here; users, addresses and cards are generated with faker
 .github/workflows/playwright.yml   # CI: chrome project on push/PR to main
 ```
 
@@ -69,6 +77,10 @@ test-data/
   - seed cookie-consent keys in localStorage through `addInitScript`;
   - register an `addLocatorHandler` that dismisses the Google survey dialog whenever it appears.
 - It adds one fixture per page object (`homePage`, `productsPage`, `cartPage`, `loginPage`, `contactPage`). Each fixture builds the page object and navigates to its URL.
+- `testUser` creates a fresh account through the API before the test and deletes it afterwards, even when the test fails. Use it for anything that logs in through the UI or changes account state.
+- `newUser` generates a user without creating it, for tests that register through the UI. Its teardown deletes the account through the API only if it still exists, so a test may delete it through the UI itself.
+- `requireTierTag` is an auto fixture that fails any test without exactly one of `@smoke` / `@regression`.
+- `authenticatedTest` is `test` with a logged-in `storageState`. Each worker creates one account (`sessionUser`), logs in through the UI once, and reuses that session for its tests, then deletes the account. Accounts are per worker because the cart belongs to the account. Tests on this session must not log out, delete the account, or leave the cart changed; use `testUser` for those. Import it as `import { authenticatedTest as test, expect } from './fixtures';` so the ESLint Playwright rules recognise it. The session fixture has its own `timeout`, because a worker-scoped fixture otherwise shares the first test's budget, and it sets `testIdAttribute` itself, because Playwright applies that option only to test-scoped contexts.
 
 Specs **must** import from `./fixtures`, not `@playwright/test`:
 
@@ -86,12 +98,16 @@ Full rules with examples are in [CODING_STANDARDS.md](CODING_STANDARDS.md). They
 
 1. **Locators are getters.** Use `get x(): Locator`, never `readonly` fields or `const`. Locators that take a parameter are methods returning `Locator` (e.g. `cartItemRow(name)`).
 2. **Selectors, then actions.** Page objects group getters under `// ========== SELECTORS ==========` and methods under `// ========== ACTIONS ==========`. Every page extends `BasePage` with `constructor(page: Page) { super(page); }`.
-3. **Locator priority:** `getByRole` → `getByLabel` → `getByText` → `getByPlaceholder` → `getByTestId` / `getByTitle` / `getByAltText` → `page.locator()` CSS as a last resort, scoped under a semantic locator where possible. The site has weak semantics, so chaining `.or()` from a role locator to a CSS fallback is the accepted pattern (see `ProductsPage.addToCartButtons`). No XPath.
+3. **Locator priority:** `getByRole` → `getByLabel` → `getByText` → `getByPlaceholder` → `getByTestId` / `getByTitle` / `getByAltText` → `page.locator()` CSS as a last resort, scoped under a semantic locator where possible, with a comment saying why. One deterministic locator per element: **no `.or()` fallback chains, no `.first()`/`.nth()` to hide ambiguity**, and exact names (`{ name: 'Login', exact: true }`) instead of loose regexes. `testIdAttribute` is set to the site's `data-qa` hooks. No XPath.
 4. **Community standards:**
    - Group tests with `test.describe()`.
    - Break multi-phase tests into `test.step()`.
    - Use web-first `expect(locator)` assertions, never `expect(await locator.isVisible()).toBe(true)`.
 5. **Fixtures, not `new`.** Tests never instantiate page objects or call `page.goto` for a page that has a fixture. To add a page, create `pages/XPage.ts`, add a fixture in `tests/fixtures.ts`, then use the fixture in tests.
+   - All page-object fixtures share one `page` and each navigates on setup, so a test requests **only the fixture of the page it starts on**. Requesting `productsPage` and `cartPage` together leaves the test on the cart page.
+   - Multi-page journeys continue through navigation methods that return the next page object (`const cartPage = await productsPage.cartModal.viewCart();`).
+   - Pages only reachable through a journey (signup, checkout, payment, order confirmation, product details) have no fixture.
+   - UI shared across pages lives in `pages/components/` and is exposed through a page getter (`productsPage.cartModal`).
 6. **Always `await`, never swallow.**
    - No floating promises and no `.catch(() => {})`.
    - Check optional UI explicitly (`if (await x.count() > 0)`) or handle it with `addLocatorHandler`.
@@ -99,8 +115,9 @@ Full rules with examples are in [CODING_STANDARDS.md](CODING_STANDARDS.md). They
 
 Also enforced:
 - **No hard waits.** No `page.waitForTimeout()` and no ad-hoc `{ timeout }` options to hide flakiness. Rely on auto-waiting, or wait on a real condition (`waitForURL`, `waitFor({ state })`, `expect`). The git history includes a deliberate cleanup that removed these.
-- **Test data comes from `TestDataFactory`.** Never inline literals in specs. Add a factory method if one is missing.
+- **Test data comes from `TestDataFactory`.** Never inline literals in specs. Add a factory method if one is missing. Generated data (users, addresses, cards, contact details) uses faker and must be unique per call. Only the fixed site catalogue (products, search terms) is hard-coded.
 - **Test names read as behaviour:** `'should <outcome> [when <condition>]'`. Keep tests independent and order-agnostic.
+- **Every test is tagged** `{ tag: '@smoke' }` or `{ tag: '@regression' }` (exactly one; extra tags such as `@visual` are fine). Smoke is the handful of journeys that prove the site works; everything else is regression.
 - **Skips need reasons.** Use `test.skip()` / `describe.skip` only with a comment or reason explaining why. Never commit `test.only`.
 - **Strict TypeScript** (`strict: true`). Type every page-object method's return value (`Promise<void>`, `Locator`).
 
@@ -110,14 +127,23 @@ Also enforced:
 - **Third-party ads** (full-screen interstitials, `#google_vignette` URL fragments) caused most of the suite's flakiness. They're now blocked through `AD_NETWORK_URLS` in `fixtures.ts`. If a new ad source appears, extend that regex rather than adding waits. Keep matching on `url.pathname` in `waitForURL` predicates.
 - **The ad script also rewrites words in product titles into links.** Don't locate products by a nested `getByText` on the title. Filter the `.product-image-wrapper` card by `hasText` (see `ProductsPage.productCardByName`).
 - **Google survey dialog** is handled automatically by the locator handler in `fixtures.ts`. Don't add manual dismissal in tests.
+- **Weak semantics to know about:** the nav is a `ul` in `<header>` (role `banner`, there's no `navigation`), and nav-link names include icon-font glyphs, so exact names fail there. "Add to cart", "Proceed To Checkout", the header's "Logged in as <name>" and the cart's remove icon are `<a>` tags without `href`, so they have no `link` role. The add-to-cart modal (`#cartModal`) has no `dialog` role.
+- **Search** only submits on the search button's click handler. Pressing Enter in the field does nothing.
+- **"Under heavy load (queue full)"** pages and hung form POSTs come from the shared server, not the suite. Locally, use `--workers=2` for repeat runs.
 - **Contact form** submits through a JS `confirm()`. `ContactPage` registers the dialog handler.
-- **Cart quantity is read-only** on this site, so don't write quantity-update tests.
+- **Cart quantity is read-only** on this site, so don't write quantity-update tests. Set a quantity on the product details page before adding instead.
+- **`/delete_account` deletes the logged-in account on a plain GET.** Never navigate there except in a test that means to delete its own account.
+- **Product images hold back `load`.** The home and listing pages serve ~34 product images and one can take 30s+, so navigations that land there use `BasePage.waitForImageHeavyPage()` or `goto(path, 'domcontentloaded')`. The cart keeps `load`.
+- **A guest's cart survives login**, and logging out empties it. A guest who proceeds to checkout gets `#checkoutModal` (no `dialog` role) asking them to register or log in.
+- **Cloudflare 520 pages** ("Web server is returning an unknown error") also come from the shared server. They're absorbed by CI retries; check the failure snapshot before debugging the test.
+- **The newsletter success alert** is only shown for about 1.5s. A web-first `toBeVisible()` catches it; don't add waits.
 - **Percy tests** skip themselves unless `PERCY_TOKEN` is set.
-- It's a shared public site. Don't create real accounts or post beyond the demo forms. Occasional slowness is normal, and it's not a reason to add waits.
+- It's a shared public site. Test accounts may be created **only** through the `testUser` / `authenticatedTest` fixtures, which always delete them. Never create accounts any other way or post beyond the demo forms. Occasional slowness is normal, and it's not a reason to add waits.
+- **The API answers HTTP 200 for everything.** The real status is `responseCode` in the body, and JSON comes back as `text/html`. `AccountApiClient` handles both.
 
 ## Secrets
 
-`.env` is git-ignored and may hold `USER_EMAIL`, `USER_PASSWORD` and `PERCY_TOKEN`. Never commit it or print its values. In CI, Percy needs `PERCY_TOKEN` as a repo secret.
+`.env` is git-ignored and may hold `PERCY_TOKEN`. Never commit it or print its values. No test needs stored credentials, because every account is generated per run, so never hard-code or commit any. In CI, Percy needs `PERCY_TOKEN` as a repo secret.
 
 ## Workflow expectations
 

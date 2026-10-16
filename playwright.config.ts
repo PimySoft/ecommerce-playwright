@@ -18,6 +18,8 @@ export default defineConfig({
   reporter: 'html',
   use: {
     baseURL: 'https://automationexercise.com',
+    // The site ships data-qa attributes as its own test hooks.
+    testIdAttribute: 'data-qa',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },

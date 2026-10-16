@@ -6,6 +6,8 @@
     "test": "playwright test",
     "test:headless": "playwright test",
     "test:headed": "playwright test --headed",
+    "test:smoke": "playwright test --grep @smoke",
+    "test:regression": "playwright test --grep @regression",
     "test:chrome": "playwright test --project=chrome",
     "test:chrome:headed": "playwright test --project=chrome --headed",
     "test:firefox": "playwright test --project=firefox",
@@ -28,6 +30,7 @@
   "license": "MIT",
   "devDependencies": {
     "@eslint/js": "^9.39.5",
+    "@faker-js/faker": "^10.6.0",
     "@percy/cli": "^1.27.4",
     "@percy/playwright": "^1.0.9",
     "@playwright/test": "^1.40.0",

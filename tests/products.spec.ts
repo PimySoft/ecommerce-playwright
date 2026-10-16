@@ -2,38 +2,73 @@ import { test, expect } from './fixtures';
 import { TestDataFactory } from '../test-data/TestDataFactory';
 
 test.describe('Products Page', () => {
-  test('should display matching products when searching by keyword', async ({ productsPage }) => {
+  test('should only display products matching the search term', { tag: '@smoke' }, async ({ productsPage }) => {
     const searchTerm = TestDataFactory.getSearchTerms().blue;
-    await productsPage.searchProduct(searchTerm);
 
-    await expect(productsPage.productCardByName(searchTerm)).toBeVisible();
-  });
-
-  test('should add product to cart and show confirmation modal', async ({ productsPage }) => {
-    await test.step('Add first product to cart', async () => {
-      await productsPage.addFirstProductToCart();
+    await test.step('Search by keyword', async () => {
+      await productsPage.searchProduct(searchTerm);
+      await expect(productsPage.searchedProductsHeading).toBeVisible();
     });
 
-    await test.step('Verify product modal appears', async () => {
-      await expect(productsPage.productModal).toBeVisible();
-      await expect(productsPage.viewCartButton).toBeVisible();
+    await test.step('Verify every result contains the search term', async () => {
+      await expect(productsPage.productNames).not.toHaveCount(0);
+      const resultCount = await productsPage.productNames.count();
+      await expect(productsPage.productNames).toHaveText(Array(resultCount).fill(new RegExp(searchTerm, 'i')));
+    });
+  });
+
+  test('should add product to cart and show confirmation modal', { tag: '@smoke' }, async ({ productsPage }) => {
+    const product = TestDataFactory.getProducts().menTshirt;
+
+    await test.step('Add product to cart', async () => {
+      await productsPage.addProductToCart(product.name);
+    });
+
+    await test.step('Verify the confirmation modal', async () => {
+      await expect(productsPage.cartModal.title).toBeVisible();
+      await expect(productsPage.cartModal.message).toBeVisible();
+      await expect(productsPage.cartModal.viewCartLink).toBeVisible();
     });
 
     await test.step('Continue shopping and verify modal closes', async () => {
-      await productsPage.continueShopping();
-      await expect(productsPage.productModal).toBeHidden();
+      await productsPage.cartModal.continueShopping();
+      await expect(productsPage.cartModal.root).toBeHidden();
     });
   });
 
-  test('should display all products when search query is empty', async ({ productsPage }) => {
-    await productsPage.searchProduct('');
-    await expect(productsPage.firstProductCard).toBeVisible();
+  test('should display all products when search query is empty', { tag: '@regression' }, async ({ productsPage }) => {
+    await expect(productsPage.productCards).not.toHaveCount(0);
+    const allProductsCount = await productsPage.productCards.count();
+
+    await productsPage.searchProduct(TestDataFactory.getSearchTerms().empty);
+
+    await expect(productsPage.productCards).toHaveCount(allProductsCount);
   });
 
-  test('should display no products when search returns no results', async ({ productsPage }) => {
+  test('should display no products when search returns no results', { tag: '@regression' }, async ({ productsPage }) => {
     const searchTerm = TestDataFactory.getSearchTerms().nonexistent;
+
     await productsPage.searchProduct(searchTerm);
 
-    await expect(productsPage.productCardByName(searchTerm)).toHaveCount(0);
+    await expect(productsPage.searchedProductsHeading).toBeVisible();
+    await expect(productsPage.productCards).toHaveCount(0);
+  });
+
+  test('should list only the products in the chosen category', { tag: '@regression' }, async ({ productsPage }) => {
+    const listing = TestDataFactory.getCategoryListings().womenDress;
+
+    await productsPage.filterByCategory(listing.category, listing.subcategory);
+
+    await expect(productsPage.listingHeading(listing.heading)).toBeVisible();
+    await expect(productsPage.productNames).toHaveText(listing.productNames);
+  });
+
+  test('should list only the products of the chosen brand', { tag: '@regression' }, async ({ productsPage }) => {
+    const listing = TestDataFactory.getBrandListings().polo;
+
+    await productsPage.filterByBrand(listing.brand);
+
+    await expect(productsPage.listingHeading(listing.heading)).toBeVisible();
+    await expect(productsPage.productNames).toHaveText(listing.productNames);
   });
 });

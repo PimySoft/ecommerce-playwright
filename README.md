@@ -14,13 +14,27 @@ This repository demonstrates **Playwright E2E testing** capabilities:
 
 ## 🚀 Test Coverage
 
-- **Homepage** - Navigation and element visibility
-- **Authentication** - Login, signup, and form validation
-- **Products** - Product browsing, search, and cart operations
-- **Cart** - Cart management, quantity updates, checkout flow
-- **Contact** - Contact form submission and validation
-- **E2E Workflows** - Complete user journeys
-- **Visual Regression** - Percy AI-powered visual consistency checks (requires credentials)
+Every test is tagged `@smoke` or `@regression`: `npm run test:smoke` runs the journeys that prove the site works, `npm run test:regression` runs the rest.
+
+| Journey | What is verified | Spec | Tag |
+|---|---|---|---|
+| Registration | Sign up with a generated user, "Logged in as", delete the account through the UI | `registration.spec.ts` | `@smoke` |
+| Registration validation | Already-registered email is rejected; each required field blocks account creation (data-driven, one test per field) | `registration.spec.ts` | `@regression` |
+| Login | Valid login with an API-created user | `authentication.spec.ts` | `@smoke` |
+| Login and logout | Login form, invalid credentials, invalid email format, logout | `authentication.spec.ts` | `@regression` |
+| Authenticated session | Reused `storageState` shows the user as logged in without a UI login | `session.spec.ts` | `@smoke` |
+| Checkout | Log in, add several products, verify delivery/billing address and order review, pay, order confirmation | `checkout.spec.ts` | `@smoke` |
+| Invoice download | Download after payment; file name and contents (buyer and total) | `checkout.spec.ts` | `@regression` |
+| Product details | Name, category, price, availability, condition and brand; add to cart with a custom quantity | `product-details.spec.ts` | `@regression` |
+| Search and add to cart | Every result matches the term; add-to-cart confirmation | `products.spec.ts` | `@smoke` |
+| Search edge cases | Empty search lists everything; no-match search lists nothing | `products.spec.ts` | `@regression` |
+| Category and brand filters | Filtered listing shows exactly the catalogue's products for that category or brand | `products.spec.ts` | `@regression` |
+| Cart | Remove a product; empty cart blocks checkout; guest is asked to log in at checkout and keeps the cart after logging in | `cart.spec.ts` | `@regression` |
+| Guest purchase path | Home → products → add to cart → price, quantity and total in the cart | `e2e-workflow.spec.ts` | `@regression` |
+| Home page | Navigation links and heading | `homepage.spec.ts` | `@smoke` |
+| Subscription | Footer newsletter subscription shows the success message | `subscription.spec.ts` | `@regression` |
+| Contact | Contact form submission | `contact.spec.ts` | `@regression` |
+| Visual (Percy) | Snapshots of key pages; skipped unless `PERCY_TOKEN` is set | `percy-visual.spec.ts` | `@regression` `@visual` |
 
 ## 📦 Installation & Usage
 

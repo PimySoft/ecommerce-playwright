@@ -1,44 +1,54 @@
 import percySnapshot from '@percy/playwright';
-import { test } from './fixtures';
+import { test, expect } from './fixtures';
 
 test.describe('Percy Visual Regression Tests', () => {
   test.skip(!process.env.PERCY_TOKEN, 'Requires PERCY_TOKEN; run with npm run test:percy');
 
-  test('should capture home page with Percy', async ({ homePage }) => {
+  test('should capture home page with Percy', { tag: ['@regression', '@visual'] }, async ({ page, homePage }) => {
+    await expect(homePage.pageHeading).toBeVisible();
+
     await test.step('Take Percy snapshot of home page', async () => {
-      await percySnapshot(homePage.pageInstance, 'Homepage', {
+      await percySnapshot(page, 'Homepage', {
         widths: [1280, 375],
       });
     });
   });
 
-  test('should capture products page with Percy', async ({ productsPage }) => {
+  test('should capture products page with Percy', { tag: ['@regression', '@visual'] }, async ({ page, productsPage }) => {
+    await expect(productsPage.allProductsHeading).toBeVisible();
+
     await test.step('Take Percy snapshot of products page', async () => {
-      await percySnapshot(productsPage.pageInstance, 'Products Page', {
+      await percySnapshot(page, 'Products Page', {
         widths: [1280, 375],
       });
     });
   });
 
-  test('should capture login page with Percy', async ({ loginPage }) => {
+  test('should capture login page with Percy', { tag: ['@regression', '@visual'] }, async ({ page, loginPage }) => {
+    await expect(loginPage.loginHeading).toBeVisible();
+
     await test.step('Take Percy snapshot of login page', async () => {
-      await percySnapshot(loginPage.pageInstance, 'Login Page', {
+      await percySnapshot(page, 'Login Page', {
         widths: [1280, 375],
       });
     });
   });
 
-  test('should capture contact page with Percy', async ({ contactPage }) => {
+  test('should capture contact page with Percy', { tag: ['@regression', '@visual'] }, async ({ page, contactPage }) => {
+    await expect(contactPage.contactHeading).toBeVisible();
+
     await test.step('Take Percy snapshot of contact page', async () => {
-      await percySnapshot(contactPage.pageInstance, 'Contact Page', {
+      await percySnapshot(page, 'Contact Page', {
         widths: [1280, 375],
       });
     });
   });
 
-  test('should capture cart page with Percy', async ({ cartPage }) => {
+  test('should capture cart page with Percy', { tag: ['@regression', '@visual'] }, async ({ page, cartPage }) => {
+    await expect(cartPage.emptyCartMessage).toBeVisible();
+
     await test.step('Take Percy snapshot of cart page', async () => {
-      await percySnapshot(cartPage.pageInstance, 'Cart Page', {
+      await percySnapshot(page, 'Cart Page', {
         widths: [1280, 375],
       });
     });
