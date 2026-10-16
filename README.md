@@ -22,6 +22,7 @@ An end-to-end test suite for the public demo shop [automationexercise.com](https
 ```bash
 npm ci
 npx playwright install        # add --with-deps on Linux
+npx playwright install chrome # only if Google Chrome isn't installed (the chrome project uses it)
 
 npm test                      # all projects, headless
 npm run test:chrome           # one browser
@@ -139,6 +140,17 @@ Every test is tagged `@smoke` or `@regression`, and a fixture fails any test tha
 - npm packages and the Firefox and WebKit downloads are cached. The `chrome` project uses the Google Chrome build that the runner image ships.
 - At most four test jobs run at once, and each uses one worker, because the target is a shared public site.
 - On CI, failed tests are retried twice and `test.only` fails the run.
+
+## Stability
+
+Measured on 16 October 2026 with `--repeat-each=5`, no retries, two workers, from a laptop against the live site.
+
+| Projects | Runs | Passed | Time |
+| --- | --- | --- | --- |
+| Chrome, Firefox, WebKit, Pixel 7 | 620 | 598 (96.5%) | 17.5 min |
+| Visual (Docker) | 20 | 20 (100%) | 47 s |
+
+All 22 failures were traced to the shared server, not the tests. Most were Cloudflare 520 error pages; the rest were dropped API connections, page-load timeouts, and two orders that the site invoiced with a total of 0 while it was returning those errors. None of them are test defects, and CI's two retries absorb this kind of failure. See the flakiness policy in [TEST_STRATEGY.md](TEST_STRATEGY.md) for how a failure is classified.
 
 ## Documentation
 
