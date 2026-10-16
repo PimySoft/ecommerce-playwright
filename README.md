@@ -1,173 +1,115 @@
-# E-Commerce Playwright Automation
+# E-Commerce Playwright
 
 [![Playwright Tests](https://github.com/PimySoft/ecommerce-playwright/actions/workflows/playwright.yml/badge.svg?branch=main)](https://github.com/PimySoft/ecommerce-playwright/actions/workflows/playwright.yml)
 [![Test report](https://img.shields.io/badge/report-latest-2ea44f?logo=playwright)](https://pimysoft.github.io/ecommerce-playwright/)
 
-A Playwright E2E testing framework showcasing best practices for web application automation, featuring Page Object Model (POM) architecture and modern testing patterns.
+An end-to-end test suite for the public demo shop [automationexercise.com](https://automationexercise.com), written in TypeScript with `@playwright/test`. It uses the Page Object Model with custom fixtures, and uses the site's API to create and delete test accounts but tests only through the browser. The rules it follows are written down in [CODING_STANDARDS.md](CODING_STANDARDS.md), and ESLint and the TypeScript compiler enforce most of them. CI runs smoke tests on every pull request and the full suite on Chrome, Firefox and WebKit for `main` and every night. The [latest report](https://pimysoft.github.io/ecommerce-playwright/) is published to GitHub Pages.
 
-## 🎯 Project Purpose
+## Tech stack
 
-This repository demonstrates **Playwright E2E testing** capabilities:
+| Area | Tool |
+| --- | --- |
+| Test runner | `@playwright/test` (Chrome, Firefox and WebKit projects) |
+| Language | TypeScript, `strict: true` |
+| Test data | `@faker-js/faker`, through `TestDataFactory` |
+| Static checks | `typescript-eslint` + `eslint-plugin-playwright` |
+| CI | GitHub Actions ([playwright.yml](.github/workflows/playwright.yml)), report on GitHub Pages |
+| Visual (optional) | Percy, opt-in through `PERCY_TOKEN` |
 
-- **End-to-End Testing** - Complete user journey testing through browser automation
-- **Page Object Model** - Maintainable and scalable test architecture
-- **Cross-Browser Testing** - Chrome, Firefox, and Safari (WebKit) projects
-- **Visual Regression Testing** - Percy AI-powered visual comparison
-- **TypeScript & Fixtures** - Type-safe tests with custom fixtures for clean code
-
-## 🚀 Test Coverage
-
-Every test is tagged `@smoke` or `@regression`: `npm run test:smoke` runs the journeys that prove the site works, `npm run test:regression` runs the rest.
-
-| Journey | What is verified | Spec | Tag |
-|---|---|---|---|
-| Registration | Sign up with a generated user, "Logged in as", delete the account through the UI | `registration.spec.ts` | `@smoke` |
-| Registration validation | Already-registered email is rejected; each required field blocks account creation (data-driven, one test per field) | `registration.spec.ts` | `@regression` |
-| Login | Valid login with an API-created user | `authentication.spec.ts` | `@smoke` |
-| Login and logout | Login form, invalid credentials, invalid email format, logout | `authentication.spec.ts` | `@regression` |
-| Authenticated session | Reused `storageState` shows the user as logged in without a UI login | `session.spec.ts` | `@smoke` |
-| Checkout | Log in, add several products, verify delivery/billing address and order review, pay, order confirmation | `checkout.spec.ts` | `@smoke` |
-| Invoice download | Download after payment; file name and contents (buyer and total) | `checkout.spec.ts` | `@regression` |
-| Product details | Name, category, price, availability, condition and brand; add to cart with a custom quantity | `product-details.spec.ts` | `@regression` |
-| Search and add to cart | Every result matches the term; add-to-cart confirmation | `products.spec.ts` | `@smoke` |
-| Search edge cases | Empty search lists everything; no-match search lists nothing | `products.spec.ts` | `@regression` |
-| Category and brand filters | Filtered listing shows exactly the catalogue's products for that category or brand | `products.spec.ts` | `@regression` |
-| Cart | Remove a product; empty cart blocks checkout; guest is asked to log in at checkout and keeps the cart after logging in | `cart.spec.ts` | `@regression` |
-| Guest purchase path | Home → products → add to cart → price, quantity and total in the cart | `e2e-workflow.spec.ts` | `@regression` |
-| Home page | Navigation links and heading | `homepage.spec.ts` | `@smoke` |
-| Subscription | Footer newsletter subscription shows the success message | `subscription.spec.ts` | `@regression` |
-| Contact | Contact form submission | `contact.spec.ts` | `@regression` |
-| Visual (Percy) | Snapshots of key pages; skipped unless `PERCY_TOKEN` is set | `percy-visual.spec.ts` | `@regression` `@visual` |
-
-## 📦 Installation & Usage
+## Quick start
 
 ```bash
-# Install dependencies
-npm install
+npm ci
+npx playwright install        # add --with-deps on Linux
 
-# Run all tests headlessly
-npm test
+npm test                      # all projects, headless
+npm run test:chrome           # one browser
+npm run test:smoke            # what pull requests run (on Chrome)
+npm run test:regression
+npm run test:headed           # watch it run
+npx playwright test --ui      # debug in UI mode
+npx playwright show-report    # open the last HTML report
 
-# Run in headed mode
-npm run test:headed
-
-# Run in specific browser
-npm run test:chrome
-npm run test:firefox
-npm run test:safari
-
-# Static checks (also run in CI)
 npm run typecheck
 npm run lint
-
-# Visual regression tests (requires Percy credentials)
-npm run test:percy               # Percy AI-powered visual tests
-npm run test:percy:all           # All tests with Percy
-
-# View test reports
-npx playwright show-report
 ```
 
-## 🏗️ Architecture
+No credentials are needed: every test account is generated for the run and deleted afterwards. Percy visual tests skip themselves unless `PERCY_TOKEN` is set, for example in a git-ignored `.env`. To run them, use `npm run test:percy`. CI doesn't run them.
 
-### Page Object Model
-
-All pages follow a consistent structure with selectors (getters) at the top and actions (methods) at the bottom.
+## Project structure
 
 ```
-pages/
-├── BasePage.ts         # Base page with common functionality
-├── HomePage.ts
-├── LoginPage.ts
-├── ProductsPage.ts
-├── CartPage.ts
-└── ContactPage.ts
+api/
+  AccountApiClient.ts   typed client for creating and deleting accounts (test setup only)
+pages/                  page objects; each extends BasePage
+  BasePage.ts           goto(), cookie-consent fallback, waiting for image-heavy pages
+  components/           UI shared across pages, such as the add-to-cart modal
+tests/
+  fixtures.ts           extended test: ad blocking, consent seeding, popup handler,
+                        page-object fixtures, test accounts, logged-in sessions, tag check
+  *.spec.ts             one spec per feature area
+test-data/
+  TestDataFactory.ts    single source for test inputs
+playwright.config.ts    projects, retries, traces, reporters, baseURL
+eslint.config.mjs       lint rules that enforce the coding standards
+.github/workflows/      CI pipeline
 ```
 
-### Custom Fixtures
+## Architecture
 
-Tests use fixtures for clean, fast execution:
-
-```typescript
-test('should display login form', async ({ loginPage }) => {
-  await expect(loginPage.emailInput).toBeVisible();
-});
+```mermaid
+flowchart LR
+  Spec["*.spec.ts"] -->|"import { test, expect }"| Fixtures["tests/fixtures.ts"]
+  Spec --> Data["TestDataFactory"]
+  Fixtures -->|"page fixture: block ads, seed consent, survey handler"| Page["Playwright Page"]
+  Fixtures -->|"homePage, productsPage, cartPage, loginPage, contactPage"| POM["Page objects (pages/*)"]
+  Fixtures -->|"testUser, newUser, authenticatedTest"| Api["api/AccountApiClient"]
+  Fixtures --> Data
+  POM -->|extends| Base["BasePage"]
+  POM --> Page
+  Page -->|"behaviour under test"| Site["automationexercise.com"]
+  Api -->|"setup and teardown only"| Site
 ```
 
-## 📋 Coding Standards
+## Design decisions
 
-See `CODING_STANDARDS.md` for details. Key principles:
+- **Page objects are provided as fixtures.** Specs never call `new` on a page object or `page.goto` for it. Each fixture builds its page object and opens the page before the test body runs, so a test starts with the page it needs (`async ({ cartPage }) => …`). Journeys continue through methods that return the next page object. Page objects declare locators as getters and keep selectors and actions in separate sections.
+- **One deterministic locator per element.** The preference order is role, then label, text, placeholder and test id (the site's own `data-qa` hooks), with scoped CSS as a last resort. There are no `.or()` fallback chains, no `.first()` to hide ambiguity and no XPath. Each locator was checked against the live accessibility tree.
+- **The API sets up and the browser tests.** The `testUser` fixture creates an account through the site's API before a test and deletes it afterwards, even when the test fails. `authenticatedTest` logs in through the UI once per worker and reuses the session, so most logged-in tests skip the login form. Each worker gets its own account because the cart belongs to the account.
+- **Third-party noise is removed at the network layer instead of handled with waits.** Ad networks inject full-screen interstitials and delay the load event, so the `page` fixture aborts their requests with `page.route`. Cookie consent is pre-set in `localStorage` with `addInitScript`. A Google survey dialog is dismissed by `addLocatorHandler` whenever it appears. The suite has no hard waits, and ESLint enforces that.
+- **The ad script rewrites words in product titles into links.** So products are located by filtering the product card with `hasText` instead of by matching nested title text.
+- **Browser behaviour only.** API, unit and contract tests are out of scope. They belong at lower levels of the test pyramid, where they run faster and fail with more precise errors. This suite stays thin and covers the user journeys that only a browser can verify.
 
-- Getters for locators (lazy evaluation)
-- Role-based locators prioritized (`getByRole()`)
-- Selectors and actions separated
-- Custom fixtures for page objects
-- No useless comments
-- Playwright community standards
+## Test coverage
 
-## 📊 API Testing Philosophy
+Every test is tagged `@smoke` or `@regression`, and a fixture fails any test that isn't. Smoke is the handful of journeys that prove the site works.
 
-**API testing is intentionally excluded** from this Playwright project. API endpoints should be tested with more efficient tools:
+| Journey | What is verified | Spec | Tag |
+| --- | --- | --- | --- |
+| Registration | Sign up with a generated user, "Logged in as", delete the account through the UI | [registration.spec.ts](tests/registration.spec.ts) | `@smoke` |
+| Registration validation | Already-registered email is rejected; each required field blocks account creation (data-driven, one test per field) | [registration.spec.ts](tests/registration.spec.ts) | `@regression` |
+| Login | Valid login with an API-created user | [authentication.spec.ts](tests/authentication.spec.ts) | `@smoke` |
+| Login and logout | Login form, invalid credentials, invalid email format, logout | [authentication.spec.ts](tests/authentication.spec.ts) | `@regression` |
+| Authenticated session | Reused `storageState` shows the user as logged in without a UI login | [session.spec.ts](tests/session.spec.ts) | `@smoke` |
+| Checkout | Log in, add several products, verify delivery/billing address and order review, pay, order confirmation | [checkout.spec.ts](tests/checkout.spec.ts) | `@smoke` |
+| Invoice download | Download after payment; file name and contents (buyer and total) | [checkout.spec.ts](tests/checkout.spec.ts) | `@regression` |
+| Product details | Name, category, price, availability, condition and brand; add to cart with a custom quantity | [product-details.spec.ts](tests/product-details.spec.ts) | `@regression` |
+| Search and add to cart | Every result matches the term; add-to-cart confirmation | [products.spec.ts](tests/products.spec.ts) | `@smoke` |
+| Search edge cases | Empty search lists everything; no-match search lists nothing | [products.spec.ts](tests/products.spec.ts) | `@regression` |
+| Category and brand filters | Filtered listing shows exactly the catalogue's products for that category or brand | [products.spec.ts](tests/products.spec.ts) | `@regression` |
+| Cart | Remove a product; empty cart blocks checkout; guest is asked to log in at checkout and keeps the cart after logging in | [cart.spec.ts](tests/cart.spec.ts) | `@regression` |
+| Guest purchase path | Home → products → add to cart → price, quantity and total in the cart | [e2e-workflow.spec.ts](tests/e2e-workflow.spec.ts) | `@regression` |
+| Home page | Navigation links and heading | [homepage.spec.ts](tests/homepage.spec.ts) | `@smoke` |
+| Subscription | Footer newsletter subscription shows the success message | [subscription.spec.ts](tests/subscription.spec.ts) | `@regression` |
+| Contact | Contact form submission | [contact.spec.ts](tests/contact.spec.ts) | `@regression` |
+| Visual (opt-in) | Percy snapshots of key pages; skipped without `PERCY_TOKEN` | [percy-visual.spec.ts](tests/percy-visual.spec.ts) | `@regression` `@visual` |
 
-- **Jest + Supertest** - Fast, lightweight API testing
-- **Postman/Newman** - Contract and integration testing
-- **REST Assured** - For Java-based API testing
-
-**Why?** API tests run faster without browser overhead, and separation of concerns allows E2E tests to focus on user journeys while API tests validate backend contracts independently.
-
-**Testing Strategy:**
-```
-E2E Tests (Playwright) - 10%       ← This Project
-Integration Tests (Jest) - 20%
-API Tests (Jest/Supertest) - 30%   ← Use separate tools
-Unit Tests (Jest) - 40%
-```
-
-## 🎨 Visual Testing
-
-The project uses **Percy** for AI-powered visual regression testing. **⚠️ Requires `PERCY_TOKEN` credentials.**
-
-### Quick Setup
-
-1. Sign up at [percy.io](https://percy.io) and create a project
-2. Get `PERCY_TOKEN` from Project Settings → API Tokens
-3. Add to `.env`: `PERCY_TOKEN=your_token_here`
-4. Run: `npm run test:percy` or `npm run test:percy:all`
-
-### How It Works
-
-- **First run**: Creates baseline snapshots in Percy dashboard
-- **Subsequent runs**: AI compares new snapshots against baselines
-- **Differences**: Shown in dashboard with approval workflow
-- **Benefits**: Ignores insignificant differences (fonts, shadows), cross-browser testing, visual dashboard
-
-### Configuration
-
-Customize snapshots in `tests/percy-visual.spec.ts`:
-```typescript
-await percySnapshot(page, 'Snapshot Name', {
-  widths: [1280, 375],  // Viewport widths
-  percyCSS: '.hide { display: none; }',  // Hide elements
-});
-```
-
-### CI/CD
-
-Add `PERCY_TOKEN` as secret environment variable. Example (GitHub Actions):
-```yaml
-- run: npm run test:percy
-  env:
-    PERCY_TOKEN: ${{ secrets.PERCY_TOKEN }}
-```
-
-**Test File:** `tests/percy-visual.spec.ts` | **Docs:** [Percy Documentation](https://docs.percy.io/docs/playwright)
-
-## 🔄 CI/CD Integration
+## CI
 
 [playwright.yml](.github/workflows/playwright.yml) type-checks and lints first, then runs the tests as a matrix of browser projects and shards.
 
 | Trigger | Browsers | Tests | Shards per browser |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | Pull request to `main` | Chrome | `@smoke` | 1 |
 | Push to `main` | Chrome, Firefox, WebKit | all | 2 |
 | Nightly (03:00 UTC) | Chrome, Firefox, WebKit | all | 2 |
@@ -180,42 +122,6 @@ Add `PERCY_TOKEN` as secret environment variable. Example (GitHub Actions):
 - At most four test jobs run at once, and each uses one worker, because the target is a shared public site.
 - On CI, failed tests are retried twice and `test.only` fails the run.
 
-## 🍪 Cookie Consent Popup Handling
-
-The site uses cookie consent popups that can block interactions. 
-
-1. **localStorage injection** - Attempts to set consent before page loads (in `fixtures.ts`)
-2. **Popup clicking fallback** - Clicks accept button if popup appears (in `BasePage.ts`)
-3. **Retry mechanisms** - 2 retries on CI handle transient failures
-
-**In production:** Identify the exact cookie/storage key via browser DevTools, then inject it via `context.addCookies()` or global setup for maximum reliability.
-
-## 📁 Project Structure
-
-```
-├── pages/              # Page Object Models
-├── tests/              # Test specifications
-│   ├── fixtures.ts     # Custom Playwright fixtures
-│   └── *.spec.ts       # Test suites
-├── test-data/          # Test data files
-├── playwright.config.ts
-└── CODING_STANDARDS.md
-```
-
-## 🎓 Best Practices
-
-- Page Object Model for maintainability
-- Custom fixtures for clean test code
-- Role-based locators for accessibility
-- TypeScript for type safety
-- Cross-browser testing
-- Visual regression testing
-- Proper error handling and retries
-
-## 📄 License
+## License
 
 MIT
-
----
-
-**Note**: This project focuses on E2E testing with Playwright. For API testing, unit testing, and component testing, use appropriate specialized tools (Jest, Supertest, React Testing Library, etc.) that complement this E2E test suite.
