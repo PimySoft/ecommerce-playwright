@@ -28,6 +28,12 @@ export default tseslint.config(
       'playwright/prefer-web-first-assertions': 'error',
       'playwright/no-skipped-test': ['warn', { allowConditional: true }],
       'playwright/expect-expect': ['warn', { assertFunctionNames: ['percySnapshot'] }],
+      'playwright/no-nth-methods': 'error',
+      'playwright/no-raw-locators': 'error',
+      'playwright/no-conditional-in-test': 'error',
+      'playwright/prefer-to-have-count': 'error',
+      'playwright/prefer-locator': 'error',
+      'playwright/no-get-by-title': 'error',
     },
   },
   {
@@ -36,6 +42,8 @@ export default tseslint.config(
     rules: {
       'playwright/no-wait-for-timeout': 'error',
       'playwright/no-force-option': 'error',
+      'playwright/no-nth-methods': 'warn',
+      'playwright/prefer-locator': 'error',
     },
   },
 );

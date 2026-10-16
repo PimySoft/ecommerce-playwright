@@ -16,11 +16,11 @@ export class ContactPage extends BasePage {
   // ========== SELECTORS ==========
 
   get contactHeading(): Locator {
-    return this.page.getByRole('heading', { name: /get in touch/i });
+    return this.page.getByRole('heading', { name: 'Get In Touch', exact: true });
   }
 
   get nameInput(): Locator {
-    return this.page.getByPlaceholder(/name/i);
+    return this.page.getByRole('textbox', { name: 'Name', exact: true });
   }
 
   get emailInput(): Locator {
@@ -28,21 +28,20 @@ export class ContactPage extends BasePage {
   }
 
   get subjectInput(): Locator {
-    return this.page.getByPlaceholder(/subject/i);
+    return this.page.getByRole('textbox', { name: 'Subject', exact: true });
   }
 
   get messageTextarea(): Locator {
-    return this.page.getByPlaceholder(/your message here/i);
+    return this.page.getByRole('textbox', { name: 'Your Message Here', exact: true });
   }
 
   get submitButton(): Locator {
-    return this.page.getByRole('button', { name: /submit/i });
+    return this.page.getByRole('button', { name: 'Submit', exact: true });
   }
 
   get successMessage(): Locator {
-    return this.page.locator('#contact-page').getByText(/success! your details have been submitted successfully/i);
+    return this.page.locator('#contact-page').getByText('Success! Your details have been submitted successfully.', { exact: true });
   }
-
 
   // ========== ACTIONS ==========
 

@@ -141,23 +141,23 @@ export class LoginPage extends BasePage {
 ### ✅ Correct
 ```typescript
 get submitButton(): Locator {
-  return this.page.getByRole('button', { name: /submit|save/i });
+  return this.page.getByRole('button', { name: 'Submit', exact: true });
 }
 
-get navigationLink(): Locator {
-  return this.page.getByRole('link', { name: /dashboard|home/i });
+get cartLink(): Locator {
+  return this.page.getByRole('banner').getByRole('link', { name: 'Cart' });
 }
 
 get emailInput(): Locator {
-  return this.page.getByRole('textbox', { name: /email/i });
+  return this.page.getByRole('textbox', { name: 'Email', exact: true });
 }
 
-get passwordField(): Locator {
-  return this.page.getByLabel(/password/i);
+get loginEmailInput(): Locator {
+  return this.page.getByTestId('login-email');
 }
 
 get errorMessage(): Locator {
-  return this.page.getByText(/error|warning|invalid/i);
+  return this.page.getByText('Your email or password is incorrect!', { exact: true });
 }
 
 get heading(): Locator {
@@ -199,7 +199,30 @@ Only use `page.locator()` when:
 - The element has no accessible properties (role, label, text, etc.)
 - You're working with legacy code that lacks semantic HTML
 
-Even in these cases, prefer combining Playwright locators (e.g., `page.getByRole('region').locator('.specific-class')`) over pure CSS selectors.
+Even in these cases, prefer combining Playwright locators (e.g., `page.getByRole('region').locator('.specific-class')`) over pure CSS selectors, and add a comment saying *why* no semantic locator works (e.g. "icon-only `<a>` with no href, text or label").
+
+### One deterministic locator per element
+
+Each getter must resolve to exactly one element through one strategy:
+
+- **No `.or()` fallback chains.** A chain like `getByRole(...).or(locator('.x')).or(locator('[class*=x]'))` means nobody checked which one matches. Inspect the element (`npx playwright codegen`, UI mode's locator picker, or `locator.ariaSnapshot()`) and keep the single locator that works.
+- **No `.first()` / `.nth()` to silence strict mode.** If a locator matches several elements, scope it (to a row, card, dialog or `banner`) or filter it (`filter({ has })`) until it matches one.
+- **Exact names over regexes.** Use `{ name: 'Login', exact: true }`, not `/login/i`. A loose regex matches more than you intended (e.g. `/consent/i` also matches "Do not consent"). Where the accessible name includes noise you can't control, such as icon-font glyphs in the nav links, use a plain-string (substring) name scoped to a small region.
+- **Use the app's test hooks** (`data-qa`, configured as `testIdAttribute`) when roles and labels are ambiguous, e.g. two "Email Address" fields on one page.
+
+```typescript
+// ❌ Fallback chain hiding an unverified locator
+get addToCartButton(): Locator {
+  return this.page.getByRole('button', { name: /add to cart/i })
+    .or(this.page.locator('a, button').filter({ hasText: /add to cart/i }))
+    .first();
+}
+
+// ✅ Verified: the element is an <a> without href (no link role), scoped to its product card
+addToCartButton(productName: string): Locator {
+  return this.productCardByName(productName).locator('.productinfo').getByText('Add to cart', { exact: true });
+}
+```
 
 ## 5. Follow Playwright Community Standards
 
@@ -218,6 +241,8 @@ Even in these cases, prefer combining Playwright locators (e.g., `page.getByRole
 - Prefer `page.getByRole()` over CSS selectors
 - Use `test.setTimeout()` for tests that need longer timeouts
 - Use `test.use()` for test-specific configuration
+- Tag every test with exactly one pipeline tier, `@smoke` or `@regression`, using the `tag` option: `test('should ...', { tag: '@smoke' }, async (...) => {})`. Smoke covers the few journeys that prove the site is usable (home page, login, registration, search, add to cart, checkout); everything else is regression. The `requireTierTag` auto fixture fails any test without exactly one tier
+- Data-drive a test with a `for` loop over `test()` only when each case checks something distinct (e.g. one test per required signup field), never just to add volume
 
 ### ✅ Correct
 ```typescript
@@ -323,6 +348,18 @@ test('should login with valid credentials', async ({ page }) => {
 - Initialize page objects in fixtures, not in tests
 - Use `use()` callback for proper cleanup
 - Share common setup across fixtures when possible
+- Create test accounts through the API in a fixture (`testUser`), never through the UI in a test's setup, and delete them in the fixture's teardown so cleanup runs even when the test fails
+- Reuse a logged-in session with `authenticatedTest` instead of logging in through the UI in every test
+- For tests that register through the UI, use `newUser`: a generated user that is not created up front, deleted afterwards only if it exists
+- Pages that can only be reached through a journey (signup, checkout, payment, order confirmation, product details) have no fixture; tests reach them through navigation methods that return the next page object
+- UI shared by several pages (e.g. the add-to-cart modal) is a component class in `pages/components/`, exposed through a getter on each page that shows it (`productsPage.cartModal.viewCart()`). Components take a `Page` but don't extend `BasePage`, because they aren't navigable
+
+```typescript
+test('should show the user as logged in when credentials are valid', async ({ loginPage, testUser }) => {
+  const homePage = await loginPage.loginAs(testUser);
+  await expect(homePage.loggedInAsText(testUser.name)).toBeVisible();
+});
+```
 
 ## 7. Always Use Await, Never Silently Catch Errors
 
@@ -336,21 +373,17 @@ test('should login with valid credentials', async ({ page }) => {
 
 ### ✅ Correct
 ```typescript
-async navigateToProducts(): Promise<void> {
+async navigateToProducts(): Promise<ProductsPage> {
   await this.productsLink.click();
+  await this.page.waitForURL((url) => url.pathname === '/products');
   await this.handleCookieConsent();
-  await this.page.waitForURL('**/products**');
+  return new ProductsPage(this.page);
 }
 
-async handleGoogleSurveyPopup(): Promise<void> {
-  const popup = getGoogleSurveyPopup(page);
-  const closeButton = getGoogleSurveyCloseButton(page);
-  const closeCount = await closeButton.count();
-  if (closeCount > 0) {
-    await closeButton.first().click({ timeout: 5000 });
-    await popup.waitFor({ state: 'hidden', timeout: 5000 });
-  }
-}
+// Playwright waits for the dialog to be hidden after the handler runs.
+await page.addLocatorHandler(getGoogleSurveyDialog(page), async (dialog) => {
+  await dialog.getByRole('button', { name: 'Close' }).click();
+});
 ```
 
 ### ❌ Incorrect
@@ -381,10 +414,13 @@ When writing or reviewing code, ensure:
 - [ ] No useless comments that restate the code
 - [ ] Selectors and actions are clearly separated with section comments (`// SELECTORS` and `// ACTIONS`)
 - [ ] Playwright locator methods (`getByRole()`, `getByLabel()`, `getByText()`, etc.) are used instead of `page.locator()` with CSS selectors
+- [ ] One deterministic locator per element: no `.or()` fallback chains, no `.first()` hiding ambiguity, exact names
+- [ ] Assertions check the business outcome the test name promises (values, text, counts), not just visibility
 - [ ] Code follows Playwright community standards (`test.describe()`, `test.step()`, proper assertions)
 - [ ] Custom fixtures are used for Page Object Models
 - [ ] Tests use fixtures instead of instantiating page objects in each test
 - [ ] TypeScript types are properly used for fixtures and page objects
 - [ ] All page objects extend `BasePage` with consistent constructor pattern
+- [ ] Every test has exactly one of `@smoke` / `@regression`
 - [ ] All async operations use `await` (no silent error catching with `.catch(() => {})`)
 

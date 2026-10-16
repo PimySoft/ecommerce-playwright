@@ -42,15 +42,20 @@ The README is the first thing a reviewer reads. Today it makes claims the code d
 
 Senior reviewers judge locator and assertion quality first.
 
-- [ ] Audit every page object and replace the stacked `.or()` fallback chains with one deterministic locator per element. Use `playwright codegen` and the UI mode locator picker to confirm each one.
-- [ ] Replace loose regexes (`/cart/i`, `/products/i`, `/home/i`) with exact accessible names scoped to the navigation region, e.g. `page.getByRole('navigation').getByRole('link', { name: 'Cart' })`.
-- [ ] Remove the `.first()` calls that only hide ambiguous locators.
-- [ ] Strengthen the weak assertions:
+- [x] Audit every page object and replace the stacked `.or()` fallback chains with one deterministic locator per element. Use `playwright codegen` and the UI mode locator picker to confirm each one.
+  - *Confirmed against the live accessibility tree. The site's `data-qa` hooks are now the `testIdAttribute`.*
+- [x] Replace loose regexes (`/cart/i`, `/products/i`, `/home/i`) with exact accessible names scoped to the navigation region, e.g. `page.getByRole('navigation').getByRole('link', { name: 'Cart' })`.
+  - *The site has no `navigation` landmark, so links are scoped to `banner`. Their names include icon-font glyphs, so they use plain-string (substring) names instead of `exact`.*
+- [x] Remove the `.first()` calls that only hide ambiguous locators.
+- [x] Strengthen the weak assertions:
   - **E2E workflow:** assert the chosen product's name, price, quantity and total in the cart, not just "the empty-cart message is hidden".
   - **Search:** assert that every result contains the search term, and that the "Searched Products" heading is shown.
   - **Add to cart:** assert the modal's confirmation text, not only that it's visible.
-- [ ] Remove `pageInstance` from `BasePage` if `page` can be exposed in a cleaner way, and drop the leftover "what" comments in `fixtures.ts`.
-- [ ] Turn on stricter ESLint rules where they now pass, e.g. `playwright/no-nth-methods` as a warning.
+  - *The audit also found that search never submitted (Enter does nothing; only the button's click handler searches), and that the checkout button's "hidden" assertion always passed because of a wrong role.*
+- [x] Remove `pageInstance` from `BasePage` if `page` can be exposed in a cleaner way, and drop the leftover "what" comments in `fixtures.ts`.
+  - *Percy specs use the `page` fixture directly.*
+- [x] Turn on stricter ESLint rules where they now pass, e.g. `playwright/no-nth-methods` as a warning.
+  - *Specs: `no-nth-methods`, `no-raw-locators`, `no-conditional-in-test`, `prefer-to-have-count` and `prefer-locator` are errors. Pages: `no-nth-methods` is a warning.*
 
 **Done when:** no page object contains a CSS fallback chain, every test asserts the business outcome it names, and the suite is stable at `--repeat-each=5`.
 
@@ -62,12 +67,16 @@ This is the clearest Senior signal: use the API for **setup** and keep the brows
 
 The site exposes a public API (https://automationexercise.com/api_list), including `POST /api/createAccount`, `POST /api/verifyLogin` and `DELETE /api/deleteAccount`.
 
-- [ ] Add `@faker-js/faker` and turn `TestDataFactory` into a real factory that generates unique users, addresses and card details per test.
-- [ ] Add an `api/` layer: a small typed client around Playwright's `request` fixture for the account endpoints.
-- [ ] Add a `testUser` fixture that creates an account through the API before the test and deletes it afterwards, even when the test fails.
-- [ ] Add an `auth.setup.ts` project that logs in once through the UI and saves `storageState`. Add a `loggedInPage` fixture or an authenticated project that reuses it.
-- [ ] Use `.env` / CI secrets for anything that must stay stable. Never hard-code credentials.
-- [ ] Update the CLAUDE.md "don't create real accounts" rule: test accounts may be created **only** through the `testUser` fixture, which always cleans up.
+- [x] Add `@faker-js/faker` and turn `TestDataFactory` into a real factory that generates unique users, addresses and card details per test.
+  - *Products and search terms stay fixed because the catalogue is fixed. `getValidCredentials` is gone; invalid-login tests use freshly generated, unregistered credentials.*
+- [x] Add an `api/` layer: a small typed client around Playwright's `request` fixture for the account endpoints.
+  - *`api/AccountApiClient.ts`. The API always returns HTTP 200 with the real status in `responseCode`, so the client checks that.*
+- [x] Add a `testUser` fixture that creates an account through the API before the test and deletes it afterwards, even when the test fails.
+- [x] Add an `auth.setup.ts` project that logs in once through the UI and saves `storageState`. Add a `loggedInPage` fixture or an authenticated project that reuses it.
+  - *Implemented as a worker-scoped `authenticatedTest` instead of a setup project. One account shared by all workers would share one cart, so each worker creates its own account, logs in through the UI once, and reuses the `storageState`.*
+- [x] Use `.env` / CI secrets for anything that must stay stable. Never hard-code credentials.
+  - *Nothing needs to stay stable any more: every account is generated per run, so no credentials are stored at all.*
+- [x] Update the CLAUDE.md "don't create real accounts" rule: test accounts may be created **only** through the `testUser` fixture, which always cleans up.
 
 **Done when:** no test depends on a pre-existing account, logged-in tests skip the UI login, and no test accounts are left behind after a run.
 
@@ -77,16 +86,22 @@ The site exposes a public API (https://automationexercise.com/api_list), includi
 
 The suite has 12 real tests, and the most important journey is missing.
 
-- [ ] **Registration:** sign up through the UI with a generated user, verify "Logged in as", and delete the account through the UI.
-- [ ] **Login:** valid login (through the API-created user), invalid login, and logout.
-- [ ] **Checkout, end to end:** log in → add several products → cart → checkout → verify the address and order review → pay → order confirmation.
-- [ ] **Invoice download:** handle the download with `page.waitForEvent('download')` and assert the file name and contents.
-- [ ] **Product details:** name, category, price, availability and brand on the details page; add to cart with a custom quantity.
-- [ ] **Category and brand filters:** the filtered listing shows only matching products.
-- [ ] **Cart:** contents persist after login, removing products, and an empty cart blocks checkout.
-- [ ] **Subscription footer:** the success message is shown.
-- [ ] Data-driven tests where they add value (e.g. a loop of `test()` over invalid-registration cases), not just for volume.
-- [ ] Tag every test `@smoke` or `@regression` using Playwright's `tag` option.
+- [x] **Registration:** sign up through the UI with a generated user, verify "Logged in as", and delete the account through the UI.
+  - *`newUser` fixture: generated but not created; its teardown deletes the account through the API only if it still exists. `/delete_account` deletes on a plain GET.*
+- [x] **Login:** valid login (through the API-created user), invalid login, and logout.
+- [x] **Checkout, end to end:** log in → add several products → cart → checkout → verify the address and order review → pay → order confirmation.
+  - *Navigations to the home and listing pages wait for `domcontentloaded`: a single slow product image could hold back `load` for 30s+.*
+- [x] **Invoice download:** handle the download with `page.waitForEvent('download')` and assert the file name and contents.
+- [x] **Product details:** name, category, price, availability and brand on the details page; add to cart with a custom quantity.
+- [x] **Category and brand filters:** the filtered listing shows only matching products.
+  - *Asserted against the exact catalogue lists in `TestDataFactory`, not just a heading.*
+- [x] **Cart:** contents persist after login, removing products, and an empty cart blocks checkout.
+  - *A guest's cart survives login; the test goes through the real "Register / Login" checkout prompt.*
+- [x] **Subscription footer:** the success message is shown.
+- [x] Data-driven tests where they add value (e.g. a loop of `test()` over invalid-registration cases), not just for volume.
+  - *One test per required signup field. Each proves the browser blocked the submit (focus moves to the empty field, which is the only `:invalid` one).*
+- [x] Tag every test `@smoke` or `@regression` using Playwright's `tag` option.
+  - *Enforced at runtime by the `requireTierTag` auto fixture (eslint-plugin-playwright 2.12 has no tag rule). `npm run test:smoke` / `test:regression`.*
 
 **Done when:** the coverage table in the README lists each journey with its tag, and the checkout test runs green in CI.
 
