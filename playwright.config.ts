@@ -15,7 +15,8 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   // The target is a shared public site; a single CI worker avoids rate-limiting and ad-driven flakiness.
   workers: process.env.CI ? 1 : undefined,
-  reporter: 'html',
+  // CI runs are sharded, so each shard writes a blob report that the workflow merges into one HTML report.
+  reporter: process.env.CI ? [['list'], ['github'], ['blob']] : 'html',
   use: {
     baseURL: 'https://automationexercise.com',
     // The site ships data-qa attributes as its own test hooks.

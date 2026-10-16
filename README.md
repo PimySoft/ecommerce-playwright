@@ -1,5 +1,8 @@
 # E-Commerce Playwright Automation
 
+[![Playwright Tests](https://github.com/PimySoft/ecommerce-playwright/actions/workflows/playwright.yml/badge.svg?branch=main)](https://github.com/PimySoft/ecommerce-playwright/actions/workflows/playwright.yml)
+[![Test report](https://img.shields.io/badge/report-latest-2ea44f?logo=playwright)](https://pimysoft.github.io/ecommerce-playwright/)
+
 A Playwright E2E testing framework showcasing best practices for web application automation, featuring Page Object Model (POM) architecture and modern testing patterns.
 
 ## 🎯 Project Purpose
@@ -161,32 +164,21 @@ Add `PERCY_TOKEN` as secret environment variable. Example (GitHub Actions):
 
 ## 🔄 CI/CD Integration
 
-**Current Configuration:**
-- Parallel test execution (configured in `playwright.config.ts`)
-- Retries for flaky tests (2 retries on CI)
-- Traces and screenshots on failure
-- Percy visual testing integration (requires `PERCY_TOKEN` secret)
-- Separate API tests into dedicated CI jobs for speed
+[playwright.yml](.github/workflows/playwright.yml) type-checks and lints first, then runs the tests as a matrix of browser projects and shards.
 
-**Settings:**
-- `forbidOnly: !!process.env.CI` - Prevents test.only in production
-- `retries: process.env.CI ? 2 : 0` - Retries on CI only
-- `workers: process.env.CI ? 1 : undefined` - Sequential on CI, parallel locally
+| Trigger | Browsers | Tests | Shards per browser |
+|---|---|---|---|
+| Pull request to `main` | Chrome | `@smoke` | 1 |
+| Push to `main` | Chrome, Firefox, WebKit | all | 2 |
+| Nightly (03:00 UTC) | Chrome, Firefox, WebKit | all | 2 |
+| Manual (`workflow_dispatch`) | chosen browser or all | chosen tag or all | 1 for `@smoke`, otherwise 2 |
 
-**GitHub Actions Workflow:**
-- **Demo workflow included** - `.github/workflows/playwright.yml` demonstrates CI/CD setup
-- Runs automatically on push/PR to main
-- Uses official Playwright GitHub Action for reliable browser installation
-- Runs type-check and ESLint (`typescript-eslint` + `eslint-plugin-playwright`) before tests
-- Runs Chrome tests in CI (Safari/WebKit on Linux is not well supported)
-- Includes caching, artifact uploads, and proper CI configuration
-- **Note:** This is a demonstration workflow. Customize for your production needs.
-
-**Future Plans:**
-- Matrix builds for cross-browser testing (Chrome, Firefox, Safari)
-- Test result reporting and notifications
-- Integration with project management tools
-- Parallel test execution optimization for faster CI runs
+- Each shard writes a `blob` report. A merge job combines them into one HTML report, uploads it as the `playwright-report` artifact and, for runs on `main`, publishes it to [GitHub Pages](https://pimysoft.github.io/ecommerce-playwright/).
+- Failed shards also upload `test-results/` (traces and screenshots). Traces are recorded on the first retry.
+- A failed nightly run opens an Issue labelled `nightly-failure`, or comments on the one already open.
+- npm packages and the Firefox and WebKit downloads are cached. The `chrome` project uses the Google Chrome build that the runner image ships.
+- At most four test jobs run at once, and each uses one worker, because the target is a shared public site.
+- On CI, failed tests are retried twice and `test.only` fails the run.
 
 ## 🍪 Cookie Consent Popup Handling
 

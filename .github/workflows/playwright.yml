@@ -1,51 +1,211 @@
 name: Playwright Tests
 
+# Pull requests get fast @smoke feedback on Chrome. main and the nightly run get the full suite on every browser.
 on:
-  push:
-    branches: [ main ]
   pull_request:
     branches: [ main ]
+  push:
+    branches: [ main ]
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+    inputs:
+      browser:
+        description: Browser project to run
+        type: choice
+        options: [ all, chrome, firefox, safari ]
+        default: all
+      tag:
+        description: Test tier to run
+        type: choice
+        options: [ all, '@smoke', '@regression' ]
+        default: all
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
 
 jobs:
-  test:
-    timeout-minutes: 60
+  static-checks:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-    - uses: actions/checkout@v4
-    
-    - uses: actions/setup-node@v4
-      with:
-        node-version: 20
-        cache: 'npm'
-    
-    - name: Install dependencies
-      run: npm ci
-    
-    - name: Type-check
-      run: npm run typecheck
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
 
-    - name: Lint
-      run: npm run lint
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      grep: ${{ steps.plan.outputs.grep }}
+      shard-total: ${{ steps.plan.outputs.shard-total }}
+    steps:
+      - id: plan
+        env:
+          EVENT: ${{ github.event_name }}
+          INPUT_BROWSER: ${{ inputs.browser }}
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          case "$EVENT" in
+            pull_request)      browser=chrome;          tag=@smoke ;;
+            workflow_dispatch) browser="$INPUT_BROWSER"; tag="$INPUT_TAG" ;;
+            *)                 browser=all;             tag=all ;;
+          esac
+          [ "$browser" = all ] && projects="chrome firefox safari" || projects="$browser"
+          # Smoke is a handful of tests, so splitting it only adds job start-up time.
+          [ "$tag" = @smoke ] && shard_total=1 || shard_total=2
+          [ "$tag" = all ] && grep="" || grep="$tag"
 
-    - name: Install Playwright Browsers
-      run: npx playwright install --with-deps chromium
-    
-    - name: Run Playwright tests
-      run: npm test -- --project=chrome
-      env:
-        CI: true
-    
-    - uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: playwright-report
-        path: playwright-report/
-        retention-days: 30
-    
-    - uses: actions/upload-artifact@v4
-      if: failure()
-      with:
-        name: test-results
-        path: test-results/
-        retention-days: 7
+          entries=""
+          for project in $projects; do
+            case "$project" in
+              chrome)  install="" ;;
+              firefox) install=firefox ;;
+              safari)  install=webkit ;;
+            esac
+            for shard in $(seq 1 "$shard_total"); do
+              entries="$entries$(jq -nc --arg project "$project" --arg install "$install" --argjson shard "$shard" \
+                '{project: $project, install: $install, shard: $shard}')"
+            done
+          done
+          echo "matrix=$(echo "$entries" | jq -sc '{include: .}')" >> "$GITHUB_OUTPUT"
+          echo "grep=$grep" >> "$GITHUB_OUTPUT"
+          echo "shard-total=$shard_total" >> "$GITHUB_OUTPUT"
+          echo "Projects: $projects | tag: $tag | shards: $shard_total" >> "$GITHUB_STEP_SUMMARY"
 
+  test:
+    name: test (${{ matrix.project }} ${{ matrix.shard }}/${{ needs.plan.outputs.shard-total }})
+    needs: [ static-checks, plan ]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      # The target is a shared public site; capping concurrent jobs keeps it from answering "queue full".
+      max-parallel: 4
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      # The `chrome` project uses the Google Chrome channel, which the ubuntu-latest image already ships.
+      - name: Cache Playwright browsers
+        if: matrix.install != ''
+        id: browser-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ms-playwright-${{ runner.os }}-${{ matrix.install }}-${{ hashFiles('package-lock.json') }}
+      - name: Install Playwright browser
+        if: matrix.install != '' && steps.browser-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps ${{ matrix.install }}
+      - name: Install browser system dependencies
+        if: matrix.install != '' && steps.browser-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps ${{ matrix.install }}
+
+      - name: Run Playwright tests
+        env:
+          GREP: ${{ needs.plan.outputs.grep }}
+        run: >
+          npx playwright test
+          --project=${{ matrix.project }}
+          --shard=${{ matrix.shard }}/${{ needs.plan.outputs.shard-total }}
+          ${GREP:+--grep "$GREP"}
+
+      - name: Upload blob report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: blob-report-${{ matrix.project }}-${{ matrix.shard }}
+          path: blob-report/
+          retention-days: 1
+      - name: Upload traces and screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.project }}-${{ matrix.shard }}
+          path: test-results/
+          retention-days: 7
+
+  merge-reports:
+    needs: test
+    if: ${{ !cancelled() && needs.test.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          path: all-blob-reports
+          pattern: blob-report-*
+          merge-multiple: true
+      - run: npx playwright merge-reports --reporter html ./all-blob-reports
+      - uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 30
+      - name: Prepare report for GitHub Pages
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: playwright-report/
+
+  publish-report:
+    needs: merge-reports
+    if: ${{ !cancelled() && needs.merge-reports.result == 'success' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    concurrency:
+      group: github-pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4
+
+  report-nightly-failure:
+    needs: [ static-checks, test ]
+    if: ${{ failure() && github.event_name == 'schedule' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Open or update the nightly-failure issue
+        run: |
+          gh label create nightly-failure --color B60205 --description "The scheduled full-suite run failed" --force
+          body="The nightly run on \`main\` failed: $RUN_URL"
+          issue=$(gh issue list --label nightly-failure --state open --json number --jq '.[0].number')
+          if [ -n "$issue" ]; then
+            gh issue comment "$issue" --body "$body"
+          else
+            gh issue create --title "Nightly test run failed" --label nightly-failure --body "$body"
+          fi

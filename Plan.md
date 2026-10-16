@@ -109,14 +109,16 @@ The suite has 12 real tests, and the most important journey is missing.
 
 ## Phase 5 — CI/CD
 
-- [ ] Run Chrome, Firefox and WebKit in parallel as a CI matrix. Use the `mcr.microsoft.com/playwright` Docker image or `--with-deps` so WebKit works on Linux.
-- [ ] Shard the suite (`--shard=1/N`) and merge the results with the `blob` reporter and `merge-reports`.
-- [ ] Publish the merged HTML report to GitHub Pages for every run on `main`, and link it from the README.
-- [ ] Upload traces and screenshots on failure, and keep `trace: 'on-first-retry'`.
-- [ ] Pipeline strategy: pull requests run `@smoke` on Chrome; `main` runs the full suite on all browsers; a nightly scheduled run (`cron`) runs everything and opens or updates an Issue on failure.
-- [ ] Cache the npm and Playwright browser downloads.
-- [ ] Add a `workflow_dispatch` trigger with browser and tag inputs.
-- [ ] Add CI status and report badges to the README.
+- [x] Run Chrome, Firefox and WebKit in parallel as a CI matrix. Use the `mcr.microsoft.com/playwright` Docker image or `--with-deps` so WebKit works on Linux.
+  - *`--with-deps`, not the Docker image: the image has no Google Chrome, which the `chrome` project's channel needs. A `plan` job builds the matrix per trigger.*
+- [x] Shard the suite (`--shard=1/N`) and merge the results with the `blob` reporter and `merge-reports`.
+- [x] Publish the merged HTML report to GitHub Pages for every run on `main`, and link it from the README.
+  - *Needs Pages enabled with "GitHub Actions" as the source (Settings → Pages).*
+- [x] Upload traces and screenshots on failure, and keep `trace: 'on-first-retry'`.
+- [x] Pipeline strategy: pull requests run `@smoke` on Chrome; `main` runs the full suite on all browsers; a nightly scheduled run (`cron`) runs everything and opens or updates an Issue on failure.
+- [x] Cache the npm and Playwright browser downloads.
+- [x] Add a `workflow_dispatch` trigger with browser and tag inputs.
+- [x] Add CI status and report badges to the README.
 
 **Done when:** a PR gets smoke feedback in under 5 minutes, the full matrix runs green on `main`, and the latest report is publicly viewable.
 
