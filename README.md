@@ -3,18 +3,19 @@
 [![Playwright Tests](https://github.com/PimySoft/ecommerce-playwright/actions/workflows/playwright.yml/badge.svg?branch=main)](https://github.com/PimySoft/ecommerce-playwright/actions/workflows/playwright.yml)
 [![Test report](https://img.shields.io/badge/report-latest-2ea44f?logo=playwright)](https://pimysoft.github.io/ecommerce-playwright/)
 
-An end-to-end test suite for the public demo shop [automationexercise.com](https://automationexercise.com), written in TypeScript with `@playwright/test`. It uses the Page Object Model with custom fixtures, and uses the site's API to create and delete test accounts but tests only through the browser. The rules it follows are written down in [CODING_STANDARDS.md](CODING_STANDARDS.md), and ESLint and the TypeScript compiler enforce most of them. CI runs smoke tests on every pull request and the full suite on Chrome, Firefox and WebKit for `main` and every night. The [latest report](https://pimysoft.github.io/ecommerce-playwright/) is published to GitHub Pages.
+An end-to-end test suite for the public demo shop [automationexercise.com](https://automationexercise.com), written in TypeScript with `@playwright/test`. It uses the Page Object Model with custom fixtures, and uses the site's API to create and delete test accounts but tests only through the browser. Alongside the functional journeys it checks accessibility against a documented baseline, compares stable page regions with screenshots, and runs the core journeys on a phone viewport. CI runs smoke tests on every pull request and the full suite on Chrome, Firefox, WebKit and a Pixel 7 for `main` and every night. The [latest report](https://pimysoft.github.io/ecommerce-playwright/) is published to GitHub Pages.
 
 ## Tech stack
 
 | Area | Tool |
 | --- | --- |
-| Test runner | `@playwright/test` (Chrome, Firefox and WebKit projects) |
+| Test runner | `@playwright/test`, pinned (Chrome, Firefox, WebKit and Pixel 7 projects) |
 | Language | TypeScript, `strict: true` |
 | Test data | `@faker-js/faker`, through `TestDataFactory` |
 | Static checks | `typescript-eslint` + `eslint-plugin-playwright` |
 | CI | GitHub Actions ([playwright.yml](.github/workflows/playwright.yml)), report on GitHub Pages |
-| Visual (optional) | Percy, opt-in through `PERCY_TOKEN` |
+| Accessibility | `@axe-core/playwright`, WCAG 2.1 A/AA |
+| Visual | `toHaveScreenshot()`, baselines rendered in the Playwright Docker image |
 
 ## Quick start
 
@@ -26,6 +27,10 @@ npm test                      # all projects, headless
 npm run test:chrome           # one browser
 npm run test:smoke            # what pull requests run (on Chrome)
 npm run test:regression
+npm run test:mobile           # @smoke on a Pixel 7 viewport
+npm run test:a11y             # accessibility checks
+npm run test:visual           # visual checks, in Docker (needs Docker running)
+npm run test:visual:update    # re-render the baselines in Docker
 npm run test:headed           # watch it run
 npx playwright test --ui      # debug in UI mode
 npx playwright show-report    # open the last HTML report
@@ -34,13 +39,15 @@ npm run typecheck
 npm run lint
 ```
 
-No credentials are needed: every test account is generated for the run and deleted afterwards. Percy visual tests skip themselves unless `PERCY_TOKEN` is set, for example in a git-ignored `.env`. To run them, use `npm run test:percy`. CI doesn't run them.
+No credentials are needed: every test account is generated for the run and deleted afterwards. Visual tests skip themselves outside Docker, because screenshots only match when rendered on the same OS, CPU architecture and browser build as CI.
 
 ## Project structure
 
 ```
 api/
   AccountApiClient.ts   typed client for creating and deleting accounts (test setup only)
+accessibility/
+  AccessibilityScanner.ts  axe-core scan that reports only violations missing from the baseline
 pages/                  page objects; each extends BasePage
   BasePage.ts           goto(), cookie-consent fallback, waiting for image-heavy pages
   components/           UI shared across pages, such as the add-to-cart modal
@@ -48,11 +55,15 @@ tests/
   fixtures.ts           extended test: ad blocking, consent seeding, popup handler,
                         page-object fixtures, test accounts, logged-in sessions, tag check
   *.spec.ts             one spec per feature area
+  __screenshots__/      visual baselines
 test-data/
   TestDataFactory.ts    single source for test inputs
+  accessibilityBaseline.ts  known site violations, each with a reason
+scripts/
+  run-visual-in-docker.sh   runs the visual project in the same image as CI
 playwright.config.ts    projects, retries, traces, reporters, baseURL
 eslint.config.mjs       lint rules that enforce the coding standards
-.github/workflows/      CI pipeline
+.github/                CI pipeline, PR template, CODEOWNERS
 ```
 
 ## Architecture
@@ -64,6 +75,8 @@ flowchart LR
   Fixtures -->|"page fixture: block ads, seed consent, survey handler"| Page["Playwright Page"]
   Fixtures -->|"homePage, productsPage, cartPage, loginPage, contactPage"| POM["Page objects (pages/*)"]
   Fixtures -->|"testUser, newUser, authenticatedTest"| Api["api/AccountApiClient"]
+  Fixtures -->|"accessibilityScanner"| A11y["AccessibilityScanner (axe-core)"]
+  A11y --> Page
   Fixtures --> Data
   POM -->|extends| Base["BasePage"]
   POM --> Page
@@ -78,11 +91,14 @@ flowchart LR
 - **The API sets up and the browser tests.** The `testUser` fixture creates an account through the site's API before a test and deletes it afterwards, even when the test fails. `authenticatedTest` logs in through the UI once per worker and reuses the session, so most logged-in tests skip the login form. Each worker gets its own account because the cart belongs to the account.
 - **Third-party noise is removed at the network layer instead of handled with waits.** Ad networks inject full-screen interstitials and delay the load event, so the `page` fixture aborts their requests with `page.route`. Cookie consent is pre-set in `localStorage` with `addInitScript`. A Google survey dialog is dismissed by `addLocatorHandler` whenever it appears. The suite has no hard waits, and ESLint enforces that.
 - **The ad script rewrites words in product titles into links.** So products are located by filtering the product card with `hasText` instead of by matching nested title text.
+- **Accessibility fails only on what's new.** The site has violations it will never fix, such as icon-only buttons and low-contrast text. They are recorded per page with a reason in `accessibilityBaseline.ts`, and any other violation fails the test. If a recorded violation disappears, the report says so, so the baseline can be pruned.
+- **Visual tests are deterministic or they aren't run.** They screenshot regions that only change with a redesign (header, footer, empty cart, category sidebar) and mask the floating scroll button. Baselines are rendered in the `mcr.microsoft.com/playwright` image on amd64, and CI compares them in the same image. CI also fails if the image tag drifts from the pinned Playwright version.
+- **Mobile runs smoke only.** A phone viewport needs to prove the core journeys work. The regression detail is browser logic, which the desktop projects already cover.
 - **Browser behaviour only.** API, unit and contract tests are out of scope. They belong at lower levels of the test pyramid, where they run faster and fail with more precise errors. This suite stays thin and covers the user journeys that only a browser can verify.
 
 ## Test coverage
 
-Every test is tagged `@smoke` or `@regression`, and a fixture fails any test that isn't. Smoke is the handful of journeys that prove the site works.
+Every test is tagged `@smoke` or `@regression`, and a fixture fails any test that isn't. Smoke is the handful of journeys that prove the site works, and the `mobile-chrome` project runs all of them on a Pixel 7.
 
 | Journey | What is verified | Spec | Tag |
 | --- | --- | --- | --- |
@@ -102,7 +118,8 @@ Every test is tagged `@smoke` or `@regression`, and a fixture fails any test tha
 | Home page | Navigation links and heading | [homepage.spec.ts](tests/homepage.spec.ts) | `@smoke` |
 | Subscription | Footer newsletter subscription shows the success message | [subscription.spec.ts](tests/subscription.spec.ts) | `@regression` |
 | Contact | Contact form submission | [contact.spec.ts](tests/contact.spec.ts) | `@regression` |
-| Visual (opt-in) | Percy snapshots of key pages; skipped without `PERCY_TOKEN` | [percy-visual.spec.ts](tests/percy-visual.spec.ts) | `@regression` `@visual` |
+| Accessibility | No WCAG 2.1 A/AA violations beyond the baseline on the home, products, cart, login and contact pages | [accessibility.spec.ts](tests/accessibility.spec.ts) | `@regression` `@a11y` |
+| Visual | Header, footer, empty cart and category sidebar match their baselines | [visual.spec.ts](tests/visual.spec.ts) | `@regression` `@visual` |
 
 ## CI
 
@@ -111,16 +128,23 @@ Every test is tagged `@smoke` or `@regression`, and a fixture fails any test tha
 | Trigger | Browsers | Tests | Shards per browser |
 | --- | --- | --- | --- |
 | Pull request to `main` | Chrome | `@smoke` | 1 |
-| Push to `main` | Chrome, Firefox, WebKit | all | 2 |
-| Nightly (03:00 UTC) | Chrome, Firefox, WebKit | all | 2 |
-| Manual (`workflow_dispatch`) | chosen browser or all | chosen tag or all | 1 for `@smoke`, otherwise 2 |
+| Push to `main` | Chrome, Firefox, WebKit, Pixel 7, visual | all | 2 (Pixel 7 and visual: 1) |
+| Nightly (03:00 UTC) | Chrome, Firefox, WebKit, Pixel 7, visual | all | 2 (Pixel 7 and visual: 1) |
+| Manual (`workflow_dispatch`) | chosen project or all | chosen tag or all | 1 for `@smoke`, otherwise 2 |
 
+- Visual tests run in their own job inside the `mcr.microsoft.com/playwright` container, the same image their baselines were rendered in. On failure it uploads the expected, actual and diff images.
 - Each shard writes a `blob` report. A merge job combines them into one HTML report, uploads it as the `playwright-report` artifact and, for runs on `main`, publishes it to [GitHub Pages](https://pimysoft.github.io/ecommerce-playwright/).
 - Failed shards also upload `test-results/` (traces and screenshots). Traces are recorded on the first retry.
 - A failed nightly run opens an Issue labelled `nightly-failure`, or comments on the one already open.
 - npm packages and the Firefox and WebKit downloads are cached. The `chrome` project uses the Google Chrome build that the runner image ships.
 - At most four test jobs run at once, and each uses one worker, because the target is a shared public site.
 - On CI, failed tests are retried twice and `test.only` fails the run.
+
+## Documentation
+
+- [TEST_STRATEGY.md](TEST_STRATEGY.md): scope, risk-based priorities, test levels, environments and data, pipeline, entry and exit criteria, and the flakiness policy.
+- [CONTRIBUTING.md](CONTRIBUTING.md): how to add a test, page object, accessibility or visual check, with the review checklist.
+- [CODING_STANDARDS.md](CODING_STANDARDS.md): the rules, with examples. ESLint and the TypeScript compiler enforce most of them.
 
 ## License
 

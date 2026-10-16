@@ -32,8 +32,8 @@ The README is the first thing a reviewer reads. Today it makes claims the code d
 - [x] Rewrite it into these sections: one-paragraph overview → CI badge and live-report link → tech stack → quick start → project structure → design decisions (why POM + fixtures, locator strategy, ad blocking, API for setup but not for testing) → test coverage table.
 - [x] Keep the test-pyramid rationale, shortened to a few lines.
 - [x] Add an architecture diagram (Mermaid) showing tests → fixtures → page objects → site, plus the API setup path.
-- [ ] Link to `CODING_STANDARDS.md` and `TEST_STRATEGY.md` (from Phase 6).
-  - *`CODING_STANDARDS.md` is linked. Link `TEST_STRATEGY.md` once Phase 6 creates it.*
+- [x] Link to `CODING_STANDARDS.md` and `TEST_STRATEGY.md` (from Phase 6).
+  - *A Documentation section links both, plus `CONTRIBUTING.md`.*
 
 **Done when:** every statement in the README can be verified in the code or CI, and it reads in under three minutes.
 
@@ -128,27 +128,32 @@ The suite has 12 real tests, and the most important journey is missing.
 ## Phase 6 — Broader quality checks and Lead-level documentation
 
 ### Wider quality coverage
-- [ ] **Accessibility:** add `@axe-core/playwright` checks on key pages with a documented baseline of known site violations, so new violations fail the test.
-- [ ] **Mobile:** add a `mobile-chrome` project (e.g. `devices['Pixel 7']`) that runs `@smoke`, and handle the responsive navigation in the page objects.
-- [ ] **Visual:** add `toHaveScreenshot()` tests for stable regions such as the header, footer and an empty cart, with ads blocked and dynamic content masked. Generate the baselines in the Linux Docker image so they match CI.
-- [ ] **Percy:** decide between keeping it as an optional integration with clear docs, or removing it in favour of `toHaveScreenshot`. Don't leave it half-configured.
+- [x] **Accessibility:** add `@axe-core/playwright` checks on key pages with a documented baseline of known site violations, so new violations fail the test.
+  - *Home, products, cart, login and contact. The baseline in `test-data/accessibilityBaseline.ts` lists rule, exact targets and reason; a report annotation flags entries that stop occurring. Violations are identical in all three engines, so the checks run on every desktop project.*
+- [x] **Mobile:** add a `mobile-chrome` project (e.g. `devices['Pixel 7']`) that runs `@smoke`, and handle the responsive navigation in the page objects.
+  - *The site's nav doesn't collapse at phone width (there's no toggle), so the page objects needed no changes. All seven smoke tests pass on it.*
+- [x] **Visual:** add `toHaveScreenshot()` tests for stable regions such as the header, footer and an empty cart, with ads blocked and dynamic content masked. Generate the baselines in the Linux Docker image so they match CI.
+  - *Header, footer (scroll-up button masked), empty cart and category sidebar. A `visual` project runs only in the Docker image, forced to amd64 locally because CI is amd64. CI runs it as a container job, and static checks fail if the image tag drifts from the pinned `@playwright/test` version.*
+- [x] **Percy:** decide between keeping it as an optional integration with clear docs, or removing it in favour of `toHaveScreenshot`. Don't leave it half-configured.
+  - *Removed. `toHaveScreenshot` runs in CI with no external account or token; Percy never did.*
 
 ### Lead-level documents
-- [ ] `TEST_STRATEGY.md` (one or two pages):
+- [x] `TEST_STRATEGY.md` (one or two pages):
   - scope and what's out of scope;
   - risk-based priorities;
   - test levels and why each exists;
   - environments and test data;
   - tagging and pipeline strategy;
   - entry and exit criteria.
-- [ ] **Flakiness policy** (in the strategy or separate):
+- [x] **Flakiness policy** (in the strategy or separate):
   - how flaky tests are detected (retries in the report, nightly trends);
   - who fixes them and the time limit for doing so;
   - when to quarantine with `test.fixme` and a linked Issue;
   - "no new waits" as the rule.
-- [ ] `CONTRIBUTING.md` covering how to add a page object, fixture or test, with a checklist that mirrors `CODING_STANDARDS.md`.
-- [ ] `.github/pull_request_template.md` with the review checklist, and a `CODEOWNERS` file.
-- [ ] Update `CLAUDE.md` and `CODING_STANDARDS.md` to cover the API layer, tags, accessibility and visual testing.
+- [x] `CONTRIBUTING.md` covering how to add a page object, fixture or test, with a checklist that mirrors `CODING_STANDARDS.md`.
+- [x] `.github/pull_request_template.md` with the review checklist, and a `CODEOWNERS` file.
+- [x] Update `CLAUDE.md` and `CODING_STANDARDS.md` to cover the API layer, tags, accessibility and visual testing.
+  - *`CODING_STANDARDS.md` also had examples that broke its own rules (regex names, importing from `@playwright/test`); they now follow them.*
 
 **Done when:** a new team member could add a well-structured test using only the docs, and the strategy explains *why* the suite is shaped as it is.
 

@@ -18,6 +18,10 @@ npm test                               # all projects, headless
 npm run test:chrome                    # --project=chrome  (what PR CI runs, with --grep @smoke)
 npm run test:firefox                   # --project=firefox
 npm run test:safari                    # --project=safari  (WebKit)
+npm run test:mobile                    # --project=mobile-chrome (Pixel 7, @smoke only)
+npm run test:a11y                      # --grep @a11y
+npm run test:visual                    # visual project in the Playwright Docker image (needs Docker)
+npm run test:visual:update             # re-render visual baselines in Docker
 npm run test:headed                    # watch it run
 npm run test:smoke                     # --grep @smoke
 npm run test:regression                # --grep @regression
@@ -34,16 +38,19 @@ npx playwright codegen https://automationexercise.com   # discover locators
 npm run typecheck                      # tsc --noEmit
 npm run lint                           # ESLint: typescript-eslint + eslint-plugin-playwright
 npm run lint:fix
-
-npm run test:percy                     # Percy visual tests, needs PERCY_TOKEN
 ```
 
 ## Configuration (`playwright.config.ts`)
 
 - `baseURL` is `https://automationexercise.com`, so always navigate with relative paths (`goto('/products')`).
-- Projects: `chrome` (Desktop Chrome, `channel: 'chrome'`), `firefox` and `safari` (WebKit).
+- Projects:
+  - `chrome` (Desktop Chrome, `channel: 'chrome'`), `firefox` and `safari` (WebKit) run everything except `@visual`.
+  - `mobile-chrome` (Pixel 7, bundled Chromium) runs `@smoke` only.
+  - `visual` (Desktop Chrome viewport, bundled Chromium) runs `@visual` only. Its tests skip unless `PLAYWRIGHT_DOCKER` is set, which `scripts/run-visual-in-docker.sh` and the CI visual job do.
+- `@playwright/test` is pinned to an exact version because the visual baselines depend on the browser build. CI's static checks fail if the visual job's image tag doesn't match it.
+- `snapshotPathTemplate` puts baselines in `tests/__screenshots__/<spec>/<name>.png`, without an OS suffix, since they're only ever rendered on Linux.
 - `fullyParallel: true`. On CI: `retries: 2`, `workers: 1`, and `forbidOnly`.
-- `trace: 'on-first-retry'`, `screenshot: 'only-on-failure'`. HTML reporter locally; `list` + `github` + `blob` on CI, where the workflow merges the shards' blob reports into one HTML report.
+- `trace: 'on-first-retry'`, `screenshot: 'only-on-failure'`. HTML reporter locally; `list` + `github` + `blob` on CI, where the workflow merges the shards' blob reports into one HTML report. The merge passes `--config` because the containerised visual job records a different test directory.
 - `.env` is loaded through `dotenv` if present.
 
 `eslint.config.mjs` enforces many of the standards below mechanically, including `no-floating-promises`, `no-wait-for-timeout`, `prefer-web-first-assertions`, `no-useless-not` and `no-focused-test`. CI runs `typecheck` and `lint` before the tests.
@@ -54,9 +61,16 @@ npm run test:percy                     # Percy visual tests, needs PERCY_TOKEN
 playwright.config.ts
 api/
   AccountApiClient.ts    # typed client for createAccount / verifyLogin / deleteAccount (setup only)
+accessibility/
+  AccessibilityScanner.ts  # axe-core WCAG 2.1 A/AA scan; returns violations not in the baseline
+scripts/
+  run-visual-in-docker.sh  # runs the visual project in mcr.microsoft.com/playwright (amd64), like CI
 tests/
-  fixtures.ts            # `test`, `authenticatedTest`, `expect`; page setup, page-object and account fixtures
+  fixtures.ts            # `test`, `authenticatedTest`, `expect`; page setup, page-object, account and a11y fixtures
   <feature>.spec.ts      # one spec per feature area
+  accessibility.spec.ts  # @a11y: one test per key page
+  visual.spec.ts         # @visual: toHaveScreenshot of stable regions
+  __screenshots__/       # visual baselines, rendered only in Docker
 pages/
   BasePage.ts            # goto(), cookie-consent handling, waitForImageHeavyPage()
   HomePage.ts  ProductsPage.ts  CartPage.ts  LoginPage.ts  ContactPage.ts      # have fixtures
@@ -66,7 +80,13 @@ pages/
     CartModal.ts         # add-to-cart confirmation shared by listing and details pages
 test-data/
   TestDataFactory.ts     # every test input comes from here; users, addresses and cards are generated with faker
-.github/workflows/playwright.yml   # CI: PR → @smoke on chrome; main + nightly → all browsers, 2 shards each; report → GitHub Pages
+  accessibilityBaseline.ts  # known site violations per page, each with a reason
+.github/
+  workflows/playwright.yml   # CI: PR → @smoke on chrome; main + nightly → all projects (desktop 2 shards each) + visual job in Docker; report → GitHub Pages
+  pull_request_template.md   # review checklist
+  CODEOWNERS
+TEST_STRATEGY.md         # scope, risks, levels, environments, pipeline, entry/exit criteria, flakiness policy
+CONTRIBUTING.md          # how to add a test, page object, a11y or visual check; checklist
 ```
 
 ### How a test gets its page
@@ -79,6 +99,7 @@ test-data/
 - It adds one fixture per page object (`homePage`, `productsPage`, `cartPage`, `loginPage`, `contactPage`). Each fixture builds the page object and navigates to its URL.
 - `testUser` creates a fresh account through the API before the test and deletes it afterwards, even when the test fails. Use it for anything that logs in through the UI or changes account state.
 - `newUser` generates a user without creating it, for tests that register through the UI. Its teardown deletes the account through the API only if it still exists, so a test may delete it through the UI itself.
+- `accessibilityScanner` wraps axe-core. `findNewViolations(ACCESSIBILITY_BASELINE.<page>)` returns only violations the baseline doesn't cover, and adds a report annotation when a baseline entry no longer occurs.
 - `requireTierTag` is an auto fixture that fails any test without exactly one of `@smoke` / `@regression`.
 - `authenticatedTest` is `test` with a logged-in `storageState`. Each worker creates one account (`sessionUser`), logs in through the UI once, and reuses that session for its tests, then deletes the account. Accounts are per worker because the cart belongs to the account. Tests on this session must not log out, delete the account, or leave the cart changed; use `testUser` for those. Import it as `import { authenticatedTest as test, expect } from './fixtures';` so the ESLint Playwright rules recognise it. The session fixture has its own `timeout`, because a worker-scoped fixture otherwise shares the first test's budget, and it sets `testIdAttribute` itself, because Playwright applies that option only to test-scoped contexts.
 
@@ -117,7 +138,10 @@ Also enforced:
 - **No hard waits.** No `page.waitForTimeout()` and no ad-hoc `{ timeout }` options to hide flakiness. Rely on auto-waiting, or wait on a real condition (`waitForURL`, `waitFor({ state })`, `expect`). The git history includes a deliberate cleanup that removed these.
 - **Test data comes from `TestDataFactory`.** Never inline literals in specs. Add a factory method if one is missing. Generated data (users, addresses, cards, contact details) uses faker and must be unique per call. Only the fixed site catalogue (products, search terms) is hard-coded.
 - **Test names read as behaviour:** `'should <outcome> [when <condition>]'`. Keep tests independent and order-agnostic.
-- **Every test is tagged** `{ tag: '@smoke' }` or `{ tag: '@regression' }` (exactly one; extra tags such as `@visual` are fine). Smoke is the handful of journeys that prove the site works; everything else is regression.
+- **Every test is tagged** `{ tag: '@smoke' }` or `{ tag: '@regression' }` (exactly one; extra tags such as `@a11y` and `@visual` are fine). Smoke is the handful of journeys that prove the site works; everything else is regression.
+- **Accessibility:** assert `expect(await accessibilityScanner.findNewViolations(baseline)).toEqual([])` after waiting for a known element. Baseline entries in `test-data/accessibilityBaseline.ts` name exact `targets` and a `reason`; omit `targets` only when the count follows the catalogue. Never baseline a new violation to make a test pass.
+- **Visual:** screenshot regions, not whole pages, and only regions without products, prices or user data; mask anything that moves. Generate baselines only with `npm run test:visual:update` (Docker, amd64), never on the host, and look at the PNGs before committing. After bumping Playwright, update the image tag in the workflow and regenerate all baselines.
+- **Flakiness:** follow the policy in `TEST_STRATEGY.md`. Quarantine with `test.fixme()` and a reason linking an Issue, never by loosening an assertion or adding a wait.
 - **Skips need reasons.** Use `test.skip()` / `describe.skip` only with a comment or reason explaining why. Never commit `test.only`.
 - **Strict TypeScript** (`strict: true`). Type every page-object method's return value (`Promise<void>`, `Locator`).
 
@@ -137,13 +161,15 @@ Also enforced:
 - **A guest's cart survives login**, and logging out empties it. A guest who proceeds to checkout gets `#checkoutModal` (no `dialog` role) asking them to register or log in.
 - **Cloudflare 520 pages** ("Web server is returning an unknown error") also come from the shared server. They're absorbed by CI retries; check the failure snapshot before debugging the test.
 - **The newsletter success alert** is only shown for about 1.5s. A web-first `toBeVisible()` catches it; don't add waits.
-- **Percy tests** skip themselves unless `PERCY_TOKEN` is set.
+- **Mobile layout:** at Pixel 7 width the header nav doesn't collapse (there's no toggle), so the desktop page objects work unchanged on `mobile-chrome`.
+- **The floating scroll-up button** (`#scrollUp`) fades in on scroll and overlaps the footer, so footer screenshots mask it (`homePage.scrollUpButton`).
+- **Known accessibility violations** are identical in Chrome, Firefox and WebKit, so the `@a11y` tests run on every desktop project.
 - It's a shared public site. Test accounts may be created **only** through the `testUser` / `authenticatedTest` fixtures, which always delete them. Never create accounts any other way or post beyond the demo forms. Occasional slowness is normal, and it's not a reason to add waits.
 - **The API answers HTTP 200 for everything.** The real status is `responseCode` in the body, and JSON comes back as `text/html`. `AccountApiClient` handles both.
 
 ## Secrets
 
-`.env` is git-ignored and may hold `PERCY_TOKEN`. Never commit it or print its values. No test needs stored credentials, because every account is generated per run, so never hard-code or commit any. In CI, Percy needs `PERCY_TOKEN` as a repo secret.
+`.env` is git-ignored and loaded if present. Never commit it or print its values. No test needs stored credentials, because every account is generated per run, so never hard-code or commit any.
 
 ## Workflow expectations
 

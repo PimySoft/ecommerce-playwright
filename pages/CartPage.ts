@@ -10,6 +10,11 @@ export class CartPage extends BasePage {
 
   // ========== SELECTORS ==========
 
+  // An unnamed <section>, so it has no region role.
+  get cartSection(): Locator {
+    return this.page.locator('#cart_items');
+  }
+
   // An <a> without href, so it has no link role.
   get proceedToCheckoutButton(): Locator {
     return this.page.getByText('Proceed To Checkout', { exact: true });

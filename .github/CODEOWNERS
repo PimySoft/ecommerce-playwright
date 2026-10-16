@@ -1,0 +1,7 @@
+# Owners are requested for review automatically and, per TEST_STRATEGY.md, own fixing flaky tests in their area.
+*                       @PimySoft
+
+# Changes here affect every test, so they always need the suite owner's review.
+/tests/fixtures.ts      @PimySoft
+/playwright.config.ts   @PimySoft
+/.github/               @PimySoft
