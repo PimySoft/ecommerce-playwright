@@ -68,6 +68,11 @@ export class HomePage extends BasePage {
     return this.footer.getByText('You have been successfully subscribed!', { exact: true });
   }
 
+  // Icon-only <a> with no text or label, fixed to the viewport and faded in by script on scroll.
+  get scrollUpButton(): Locator {
+    return this.page.locator('#scrollUp');
+  }
+
   // ========== ACTIONS ==========
 
   async navigateToProducts(): Promise<ProductsPage> {

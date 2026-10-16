@@ -27,7 +27,6 @@ export default tseslint.config(
       'playwright/no-focused-test': 'error',
       'playwright/prefer-web-first-assertions': 'error',
       'playwright/no-skipped-test': ['warn', { allowConditional: true }],
-      'playwright/expect-expect': ['warn', { assertFunctionNames: ['percySnapshot'] }],
       'playwright/no-nth-methods': 'error',
       'playwright/no-raw-locators': 'error',
       'playwright/no-conditional-in-test': 'error',

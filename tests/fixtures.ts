@@ -1,5 +1,6 @@
 import { test as base, expect, BrowserContext, Page, Locator } from '@playwright/test';
 import { AccountApiClient } from '../api/AccountApiClient';
+import { AccessibilityScanner } from '../accessibility/AccessibilityScanner';
 import { HomePage } from '../pages/HomePage';
 import { ProductsPage } from '../pages/ProductsPage';
 import { CartPage } from '../pages/CartPage';
@@ -16,6 +17,7 @@ type TestFixtures = {
   loginPage: LoginPage;
   contactPage: ContactPage;
   accountApi: AccountApiClient;
+  accessibilityScanner: AccessibilityScanner;
   testUser: User;
   newUser: User;
   requireTierTag: void;
@@ -94,6 +96,10 @@ export const test = base.extend<TestFixtures>({
 
   accountApi: async ({ request }, use) => {
     await use(new AccountApiClient(request));
+  },
+
+  accessibilityScanner: async ({ page }, use) => {
+    await use(new AccessibilityScanner(page));
   },
 
   // Code after use() runs even when the test fails, so the account never outlives the test.

@@ -12,11 +12,11 @@ This document defines the coding standards for Playwright automation projects. A
 ```typescript
 export class LoginPage extends BasePage {
   get emailInput(): Locator {
-    return this.page.getByRole('textbox', { name: /email/i });
+    return this.page.getByRole('textbox', { name: 'Email Address', exact: true });
   }
 
   get submitButton(): Locator {
-    return this.page.getByRole('button', { name: /submit|login/i });
+    return this.page.getByRole('button', { name: 'Login', exact: true });
   }
 }
 ```
@@ -24,11 +24,11 @@ export class LoginPage extends BasePage {
 ### ❌ Incorrect
 ```typescript
 export class LoginPage extends BasePage {
-  readonly emailInput = this.page.getByRole('textbox', { name: /email/i });
+  readonly emailInput = this.page.getByRole('textbox', { name: 'Email Address', exact: true });
   
   // OR
   
-  const submitButton = page.getByRole('button', { name: /submit/i });
+  const submitButton = page.getByRole('button', { name: 'Login', exact: true });
 }
 ```
 
@@ -41,7 +41,7 @@ export class LoginPage extends BasePage {
 ### ✅ Correct
 ```typescript
 get emailInput(): Locator {
-  return this.page.getByRole('textbox', { name: /email/i });
+  return this.page.getByRole('textbox', { name: 'Email Address', exact: true });
 }
 
 async login(email: string, password: string): Promise<void> {
@@ -57,7 +57,7 @@ async login(email: string, password: string): Promise<void> {
  * Email input field locator using role
  */
 get emailInput(): Locator {
-  return this.page.getByRole('textbox', { name: /email/i });
+  return this.page.getByRole('textbox', { name: 'Email Address', exact: true });
 }
 
 /**
@@ -85,15 +85,15 @@ export class LoginPage extends BasePage {
 
   // SELECTORS
   get emailInput(): Locator {
-    return this.page.getByRole('textbox', { name: /email/i });
+    return this.page.getByRole('textbox', { name: 'Email Address', exact: true });
   }
 
   get passwordInput(): Locator {
-    return this.page.getByLabel(/password/i);
+    return this.page.getByLabel('Password', { exact: true });
   }
 
   get submitButton(): Locator {
-    return this.page.getByRole('button', { name: /submit|login/i });
+    return this.page.getByRole('button', { name: 'Login', exact: true });
   }
 
   // ACTIONS
@@ -241,31 +241,27 @@ addToCartButton(productName: string): Locator {
 - Prefer `page.getByRole()` over CSS selectors
 - Use `test.setTimeout()` for tests that need longer timeouts
 - Use `test.use()` for test-specific configuration
-- Tag every test with exactly one pipeline tier, `@smoke` or `@regression`, using the `tag` option: `test('should ...', { tag: '@smoke' }, async (...) => {})`. Smoke covers the few journeys that prove the site is usable (home page, login, registration, search, add to cart, checkout); everything else is regression. The `requireTierTag` auto fixture fails any test without exactly one tier
+- Tag every test with exactly one pipeline tier (see [section 9](#9-tag-every-test-with-one-tier))
 - Data-drive a test with a `for` loop over `test()` only when each case checks something distinct (e.g. one test per required signup field), never just to add volume
 
 ### ✅ Correct
 ```typescript
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
-test.describe('Login Page', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/login');
+test.describe('User Authentication', () => {
+  test('should display the login form', { tag: '@regression' }, async ({ loginPage }) => {
+    await expect(loginPage.emailInput).toBeVisible();
+    await expect(loginPage.passwordInput).toBeVisible();
   });
 
-  test('should display login form', async ({ page }) => {
-    await expect(page.getByRole('textbox', { name: /email/i })).toBeVisible();
-    await expect(page.getByLabel(/password/i)).toBeVisible();
-  });
-
-  test('should submit login form', async ({ page }) => {
-    await test.step('Enter credentials', async () => {
-      await page.getByRole('textbox', { name: /email/i }).fill('user@example.com');
-      await page.getByLabel(/password/i).fill('password123');
+  test('should log out and return to the login page', { tag: '@regression' }, async ({ loginPage, testUser }) => {
+    const homePage = await test.step('Log in', async () => {
+      return loginPage.loginAs(testUser);
     });
 
-    await test.step('Click submit button', async () => {
-      await page.getByRole('button', { name: /submit|login/i }).click();
+    await test.step('Log out', async () => {
+      const loggedOutPage = await homePage.logout();
+      await expect(loggedOutPage.loginHeading).toBeVisible();
     });
   });
 });
@@ -407,6 +403,84 @@ async handleGoogleSurveyPopup(): Promise<void> {
 - Wait for operations to complete before proceeding (e.g., wait for popup to be hidden after clicking close)
 - Proper error handling improves CI reliability and debugging
 
+## 8. Test Data Comes From the Factory; the API Only Sets Up
+
+**Rule**: Every input a test uses comes from `TestDataFactory`. Generated data (users, addresses, cards, contact details) uses faker and is unique per call. Only the site's fixed catalogue (products, prices, search terms, category and brand listings) is hard-coded there. The `api/` layer is for setup and teardown only: tests never assert on API responses.
+
+**Rationale**: Unique data keeps tests independent and parallel-safe on a shared site. Keeping literals out of specs puts every input in one place. Testing the API through a browser suite gives slow, imprecise feedback; it belongs at a lower level.
+
+### ✅ Correct
+```typescript
+test('should show the user as logged in when credentials are valid', { tag: '@smoke' }, async ({ loginPage, testUser }) => {
+  const homePage = await loginPage.loginAs(testUser);
+  await expect(homePage.loggedInAsText(testUser.name)).toBeVisible();
+});
+```
+
+### ❌ Incorrect
+```typescript
+test('login works', async ({ loginPage, accountApi }) => {
+  await loginPage.login('qa.user@example.com', 'Passw0rd!');            // inline, shared credentials
+  expect(await accountApi.accountExists({ email: 'qa.user@example.com', password: 'Passw0rd!' })).toBe(true); // asserts on the API
+});
+```
+
+- Add a factory method when one is missing; don't build data inline.
+- Accounts are created only through `testUser`, `newUser` or `authenticatedTest`, which always delete them.
+
+## 9. Tag Every Test With One Tier
+
+**Rule**: Every test has exactly one of `@smoke` or `@regression`, set with the `tag` option. Extra tags group non-functional checks: `@a11y`, `@visual`.
+
+**Rationale**: The pipeline is built on tiers. Pull requests run `@smoke` on Chrome, `mobile-chrome` runs only `@smoke`, and `main` runs everything. An untagged test would silently drop out of a tier. The `requireTierTag` auto fixture fails any test without exactly one tier.
+
+```typescript
+test('should place an order for several products and confirm it', { tag: '@smoke' }, async (...) => {});
+test('should match the header baseline', { tag: ['@regression', '@visual'] }, async (...) => {});
+```
+
+Smoke is the handful of journeys that prove the site is usable: home page, login, session, registration, search, add to cart and checkout. Adding to it slows every pull request, so it needs a reason. See [TEST_STRATEGY.md](TEST_STRATEGY.md) for the risk ranking behind it.
+
+## 10. Accessibility Checks Fail Only on New Violations
+
+**Rule**: An accessibility test waits for a known element, scans with the `accessibilityScanner` fixture, and expects no violations beyond the page's baseline. Each baseline entry in `test-data/accessibilityBaseline.ts` names the rule, the exact `targets` and a `reason`.
+
+**Rationale**: The site already has violations it won't fix. Failing on them forever teaches people to ignore the test. Accepting them with no record hides them. A documented baseline keeps both the known debt and any new regression visible.
+
+```typescript
+test('should have no WCAG violations beyond the baseline on the login page', { tag: ['@regression', '@a11y'] }, async ({ loginPage, accessibilityScanner }) => {
+  await expect(loginPage.loginHeading).toBeVisible();
+
+  expect(await accessibilityScanner.findNewViolations(ACCESSIBILITY_BASELINE.login)).toEqual([]);
+});
+```
+
+- Leave `targets` out only when the number of elements follows the catalogue (e.g. low-contrast text on every product card).
+- Never add a baseline entry to make a new violation pass. When the report notes that an entry no longer occurs, remove it.
+
+## 11. Visual Checks Cover Stable Regions, Rendered in Docker
+
+**Rule**: Screenshot a region (header, footer, sidebar, empty state) with `expect(locator).toHaveScreenshot('name.png')`, not a whole page. Pick regions without products, prices or user data, and `mask` anything that still moves. Baselines are generated only with `npm run test:visual:update`, which renders them in the Playwright Linux image on amd64, like CI.
+
+**Rationale**: Whole-page screenshots of a live catalogue fail on every content change, so they get ignored. Rendering differs between macOS, Linux, arm64 and amd64, so a baseline from a laptop never matches CI.
+
+### ✅ Correct
+```typescript
+test('should match the footer baseline', { tag: ['@regression', '@visual'] }, async ({ homePage }) => {
+  await expect(homePage.footer).toHaveScreenshot('footer.png', { mask: [homePage.scrollUpButton] });
+});
+```
+
+### ❌ Incorrect
+```typescript
+test('home page looks right', async ({ page, homePage }) => {
+  await expect(page).toHaveScreenshot({ fullPage: true, maxDiffPixelRatio: 0.2 }); // live products, loose threshold
+});
+```
+
+- Review the PNGs in `tests/__screenshots__/` before committing a new or updated baseline.
+- After upgrading Playwright, update the image tag in the workflow and regenerate every baseline.
+
 ## Summary Checklist
 
 When writing or reviewing code, ensure:
@@ -422,5 +496,8 @@ When writing or reviewing code, ensure:
 - [ ] TypeScript types are properly used for fixtures and page objects
 - [ ] All page objects extend `BasePage` with consistent constructor pattern
 - [ ] Every test has exactly one of `@smoke` / `@regression`
+- [ ] Inputs come from `TestDataFactory`; accounts come only from the account fixtures; the API is used for setup only
+- [ ] Accessibility tests compare against the documented baseline; new entries name exact targets and a reason
+- [ ] Visual tests screenshot stable regions, mask what moves, and use baselines rendered in Docker
 - [ ] All async operations use `await` (no silent error catching with `.catch(() => {})`)
 
