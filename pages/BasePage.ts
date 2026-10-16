@@ -35,7 +35,7 @@ export class BasePage {
     
     if (buttonCount > 0) {
       await this.cookieConsentAcceptButton.first().click();
-      await this.consentDialog.waitFor({ state: 'hidden', timeout: 2000 }).catch(() => {});
+      await this.consentDialog.waitFor({ state: 'hidden' });
     }
   }
 }

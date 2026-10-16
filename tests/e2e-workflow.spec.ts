@@ -13,7 +13,7 @@ test.describe('End-to-End User Workflow', () => {
 
     await test.step('Navigate to cart and verify', async () => {
       await homePage.navigateToCart();
-      await expect(cartPage.emptyCartMessage).not.toBeVisible();
+      await expect(cartPage.emptyCartMessage).toBeHidden();
     });
   });
 });

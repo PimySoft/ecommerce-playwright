@@ -13,6 +13,8 @@ type TestFixtures = {
   contactPage: ContactPage;
 };
 
+const AD_NETWORK_URLS = /googlesyndication\.com|doubleclick\.net|googleadservices\.com|adservice\.google\.|adtrafficquality\.google/;
+
 // ========== SELECTORS ==========
 
 function getGoogleSurveyPopup(page: Page): Locator {
@@ -33,6 +35,9 @@ function getGoogleSurveyDoneButton(page: Page): Locator {
 
 export const test = base.extend<TestFixtures>({
   page: async ({ page }, use) => {
+    // Third-party ads inject full-screen interstitials and delay the load event; they are not under test.
+    await page.route(AD_NETWORK_URLS, (route) => route.abort());
+
     // Set localStorage before navigation to bypass popup
     // This is more reliable than clicking the popup after pge loads
     await page.addInitScript(() => {
@@ -51,16 +56,16 @@ export const test = base.extend<TestFixtures>({
         const closeButton = getGoogleSurveyCloseButton(page);
         const closeCount = await closeButton.count();
         if (closeCount > 0) {
-          await closeButton.first().click({ timeout: 5000 });
-          await popup.waitFor({ state: 'hidden', timeout: 5000 });
+          await closeButton.first().click();
+          await popup.waitFor({ state: 'hidden' });
           return;
         }
 
         const doneButton = getGoogleSurveyDoneButton(page);
         const doneCount = await doneButton.count();
         if (doneCount > 0) {
-          await doneButton.first().click({ timeout: 5000 });
-          await popup.waitFor({ state: 'hidden', timeout: 5000 });
+          await doneButton.first().click();
+          await popup.waitFor({ state: 'hidden' });
         }
       }
     );

@@ -11,6 +11,7 @@ test.describe('User Authentication', () => {
 
   test('should display error message when login credentials are invalid', async ({ loginPage }) => {
     const invalidCredentials = TestDataFactory.getInvalidCredentials();
+
     await test.step('Attempt login with invalid credentials', async () => {
       await loginPage.login(invalidCredentials.email, invalidCredentials.password);
     });

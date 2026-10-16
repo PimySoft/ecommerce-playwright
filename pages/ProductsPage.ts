@@ -34,9 +34,10 @@ export class ProductsPage extends BasePage {
   }
 
   productCardByName(productName: string): Locator {
-    const productNameText = this.page.getByText(new RegExp(productName, 'i')).first();
-    return productNameText.locator('..').locator('..')
-      .locator('.productinfo, .product-image-wrapper, article')
+    // Filter on the card's full text: the site's ad script rewrites words in product titles into links,
+    // which breaks a nested getByText match.
+    return this.page.locator('.product-image-wrapper')
+      .filter({ hasText: new RegExp(productName, 'i') })
       .first();
   }
 
@@ -59,18 +60,16 @@ export class ProductsPage extends BasePage {
 
   async addFirstProductToCart(): Promise<void> {
     await this.handleCookieConsent();
+    await this.firstProductCard.waitFor({ state: 'visible' });
     await this.firstProductCard.hover();
     await this.addToCartButtons.first().click();
   }
 
   async addProductToCartByName(productName: string): Promise<void> {
     await this.goto('/products');
-    await this.firstProductCard.waitFor({ state: 'visible', timeout: 10000 });
     const productCard = this.productCardByName(productName);
-    await productCard.waitFor({ state: 'visible', timeout: 15000 });
     await productCard.hover();
     const addButton = this.addToCartButtonForProduct(productName);
-    await addButton.waitFor({ state: 'visible', timeout: 5000 });
     await addButton.click();
   }
 
@@ -80,5 +79,7 @@ export class ProductsPage extends BasePage {
 
   async goToCart(): Promise<void> {
     await this.viewCartButton.click();
+    // cart.js binds the remove handlers at end of body; acting before `load` makes clicks no-ops.
+    await this.page.waitForURL((url) => url.pathname === '/view_cart');
   }
 }

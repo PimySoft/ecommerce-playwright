@@ -21,7 +21,7 @@ test.describe('Products Page', () => {
 
     await test.step('Continue shopping and verify modal closes', async () => {
       await productsPage.continueShopping();
-      await expect(productsPage.productModal).not.toBeVisible();
+      await expect(productsPage.productModal).toBeHidden();
     });
   });
 
@@ -33,9 +33,7 @@ test.describe('Products Page', () => {
   test('should display no products when search returns no results', async ({ productsPage }) => {
     const searchTerm = TestDataFactory.getSearchTerms().nonexistent;
     await productsPage.searchProduct(searchTerm);
-    
-    const productCard = productsPage.productCardByName(searchTerm);
-    const count = await productCard.count();
-    expect(count).toBe(0);
+
+    await expect(productsPage.productCardByName(searchTerm)).toHaveCount(0);
   });
 });

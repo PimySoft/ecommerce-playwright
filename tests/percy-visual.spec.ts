@@ -1,7 +1,9 @@
+import percySnapshot from '@percy/playwright';
 import { test } from './fixtures';
-// import percySnapshot from '@percy/playwright';
 
-test.describe.skip('Percy Visual Regression Tests', () => {
+test.describe('Percy Visual Regression Tests', () => {
+  test.skip(!process.env.PERCY_TOKEN, 'Requires PERCY_TOKEN; run with npm run test:percy');
+
   test('should capture home page with Percy', async ({ homePage }) => {
     await test.step('Take Percy snapshot of home page', async () => {
       await percySnapshot(homePage.pageInstance, 'Homepage', {

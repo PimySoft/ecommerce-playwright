@@ -8,7 +8,7 @@ This repository demonstrates **Playwright E2E testing** capabilities:
 
 - **End-to-End Testing** - Complete user journey testing through browser automation
 - **Page Object Model** - Maintainable and scalable test architecture
-- **Cross-Browser Testing** - Chrome, Firefox, Safari, and Edge support
+- **Cross-Browser Testing** - Chrome, Firefox, and Safari (WebKit) projects
 - **Visual Regression Testing** - Percy AI-powered visual comparison
 - **TypeScript & Fixtures** - Type-safe tests with custom fixtures for clean code
 
@@ -38,7 +38,10 @@ npm run test:headed
 npm run test:chrome
 npm run test:firefox
 npm run test:safari
-npm run test:edge
+
+# Static checks (also run in CI)
+npm run typecheck
+npm run lint
 
 # Visual regression tests (requires Percy credentials)
 npm run test:percy               # Percy AI-powered visual tests
@@ -158,14 +161,15 @@ Add `PERCY_TOKEN` as secret environment variable. Example (GitHub Actions):
 
 **GitHub Actions Workflow:**
 - **Demo workflow included** - `.github/workflows/playwright.yml` demonstrates CI/CD setup
-- Runs automatically on push/PR to main/develop branches
+- Runs automatically on push/PR to main
 - Uses official Playwright GitHub Action for reliable browser installation
+- Runs type-check and ESLint (`typescript-eslint` + `eslint-plugin-playwright`) before tests
 - Runs Chrome tests in CI (Safari/WebKit on Linux is not well supported)
 - Includes caching, artifact uploads, and proper CI configuration
 - **Note:** This is a demonstration workflow. Customize for your production needs.
 
 **Future Plans:**
-- Matrix builds for cross-browser testing (Chrome, Firefox, Safari, Edge)
+- Matrix builds for cross-browser testing (Chrome, Firefox, Safari)
 - Test result reporting and notifications
 - Integration with project management tools
 - Parallel test execution optimization for faster CI runs
