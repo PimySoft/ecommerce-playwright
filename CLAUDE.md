@@ -15,7 +15,7 @@ npm ci
 npx playwright install                 # add --with-deps on Linux/CI
 
 npm test                               # all projects, headless
-npm run test:chrome                    # --project=chrome  (what CI runs)
+npm run test:chrome                    # --project=chrome  (what PR CI runs, with --grep @smoke)
 npm run test:firefox                   # --project=firefox
 npm run test:safari                    # --project=safari  (WebKit)
 npm run test:headed                    # watch it run
@@ -43,7 +43,7 @@ npm run test:percy                     # Percy visual tests, needs PERCY_TOKEN
 - `baseURL` is `https://automationexercise.com`, so always navigate with relative paths (`goto('/products')`).
 - Projects: `chrome` (Desktop Chrome, `channel: 'chrome'`), `firefox` and `safari` (WebKit).
 - `fullyParallel: true`. On CI: `retries: 2`, `workers: 1`, and `forbidOnly`.
-- `trace: 'on-first-retry'`, `screenshot: 'only-on-failure'`, HTML reporter.
+- `trace: 'on-first-retry'`, `screenshot: 'only-on-failure'`. HTML reporter locally; `list` + `github` + `blob` on CI, where the workflow merges the shards' blob reports into one HTML report.
 - `.env` is loaded through `dotenv` if present.
 
 `eslint.config.mjs` enforces many of the standards below mechanically, including `no-floating-promises`, `no-wait-for-timeout`, `prefer-web-first-assertions`, `no-useless-not` and `no-focused-test`. CI runs `typecheck` and `lint` before the tests.
@@ -66,7 +66,7 @@ pages/
     CartModal.ts         # add-to-cart confirmation shared by listing and details pages
 test-data/
   TestDataFactory.ts     # every test input comes from here; users, addresses and cards are generated with faker
-.github/workflows/playwright.yml   # CI: chrome project on push/PR to main
+.github/workflows/playwright.yml   # CI: PR → @smoke on chrome; main + nightly → all browsers, 2 shards each; report → GitHub Pages
 ```
 
 ### How a test gets its page
