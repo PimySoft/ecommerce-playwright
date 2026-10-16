@@ -34,9 +34,10 @@ export class ProductsPage extends BasePage {
   }
 
   productCardByName(productName: string): Locator {
-    const productNameText = this.page.getByText(new RegExp(productName, 'i')).first();
-    return productNameText.locator('..').locator('..')
-      .locator('.productinfo, .product-image-wrapper, article')
+    // Filter on the card's full text: the site's ad script rewrites words in product titles into links,
+    // which breaks a nested getByText match.
+    return this.page.locator('.product-image-wrapper')
+      .filter({ hasText: new RegExp(productName, 'i') })
       .first();
   }
 
@@ -78,5 +79,7 @@ export class ProductsPage extends BasePage {
 
   async goToCart(): Promise<void> {
     await this.viewCartButton.click();
+    // cart.js binds the remove handlers at end of body; acting before `load` makes clicks no-ops.
+    await this.page.waitForURL((url) => url.pathname === '/view_cart');
   }
 }

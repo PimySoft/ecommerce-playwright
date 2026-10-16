@@ -12,10 +12,11 @@
     "test:firefox:headed": "playwright test --project=firefox --headed",
     "test:safari": "playwright test --project=safari",
     "test:safari:headed": "playwright test --project=safari --headed",
-    "test:edge": "playwright test --project=edge",
-    "test:edge:headed": "playwright test --project=edge --headed",
     "test:percy": "percy exec -- playwright test tests/percy-visual.spec.ts",
-    "test:percy:all": "percy exec -- playwright test"
+    "test:percy:all": "percy exec -- playwright test",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
   },
   "keywords": [
     "playwright",
@@ -26,11 +27,15 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
     "@percy/cli": "^1.27.4",
     "@percy/playwright": "^1.0.9",
     "@playwright/test": "^1.40.0",
     "@types/node": "^20.10.0",
     "dotenv": "^17.2.3",
-    "typescript": "^5.3.3"
+    "eslint": "^9.39.5",
+    "eslint-plugin-playwright": "^2.12.1",
+    "typescript": "^5.3.3",
+    "typescript-eslint": "^8.71.2"
   }
 }

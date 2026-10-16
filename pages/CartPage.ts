@@ -44,7 +44,7 @@ export class CartPage extends BasePage {
 
   async removeProductAndWait(productName: string): Promise<void> {
     await this.removeProduct(productName);
-    await expect(this.cartItemRow(productName)).not.toBeVisible();
+    await expect(this.cartItemRow(productName)).toBeHidden();
   }
 }
 
