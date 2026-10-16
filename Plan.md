@@ -27,12 +27,13 @@ The public `main` branch is three commits behind the working branch, so visitors
 
 The README is the first thing a reviewer reads. Today it makes claims the code doesn't back up.
 
-- [ ] Remove the inaccurate claims: "uses official Playwright GitHub Action", "separate API test jobs", and Percy described as active.
-- [ ] Remove the emoji headings and the "Future Plans" list; the roadmap belongs in this plan or in GitHub Issues.
-- [ ] Rewrite it into these sections: one-paragraph overview → CI badge and live-report link → tech stack → quick start → project structure → design decisions (why POM + fixtures, locator strategy, ad blocking, API for setup but not for testing) → test coverage table.
-- [ ] Keep the test-pyramid rationale, shortened to a few lines.
-- [ ] Add an architecture diagram (Mermaid) showing tests → fixtures → page objects → site, plus the API setup path.
+- [x] Remove the inaccurate claims: "uses official Playwright GitHub Action", "separate API test jobs", and Percy described as active.
+- [x] Remove the emoji headings and the "Future Plans" list; the roadmap belongs in this plan or in GitHub Issues.
+- [x] Rewrite it into these sections: one-paragraph overview → CI badge and live-report link → tech stack → quick start → project structure → design decisions (why POM + fixtures, locator strategy, ad blocking, API for setup but not for testing) → test coverage table.
+- [x] Keep the test-pyramid rationale, shortened to a few lines.
+- [x] Add an architecture diagram (Mermaid) showing tests → fixtures → page objects → site, plus the API setup path.
 - [ ] Link to `CODING_STANDARDS.md` and `TEST_STRATEGY.md` (from Phase 6).
+  - *`CODING_STANDARDS.md` is linked. Link `TEST_STRATEGY.md` once Phase 6 creates it.*
 
 **Done when:** every statement in the README can be verified in the code or CI, and it reads in under three minutes.
 

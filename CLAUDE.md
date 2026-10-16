@@ -6,7 +6,7 @@ Guidance for Claude Code when working in this repository.
 
 A portfolio project showcasing **Playwright E2E testing done to professional standards**. It uses TypeScript with `@playwright/test` and tests the public demo shop https://automationexercise.com, using the Page Object Model and custom fixtures.
 
-Scope is browser E2E only. API, unit and contract testing are intentionally excluded (see README "API Testing Philosophy"). The site's API is used for **test setup only** (creating and deleting accounts through `api/`). Don't add tests that assert on API responses.
+Scope is browser E2E only. API, unit and contract testing are intentionally excluded (see README "Design decisions"). The site's API is used for **test setup only** (creating and deleting accounts through `api/`). Don't add tests that assert on API responses.
 
 ## Commands
 
