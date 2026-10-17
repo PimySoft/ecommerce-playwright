@@ -1,503 +1,129 @@
-# Playwright Automation Coding Standards
+# Coding Standards
 
-This document defines the coding standards for Playwright automation projects. All code must adhere to these rules to ensure consistency, maintainability, and reliability across test suites.
+These rules are mandatory. ESLint and the TypeScript compiler enforce most of them, and the PR template checks the rest.
 
-## 1. Getters Over Readonly or Const
+## 1. Locators are getters
 
-**Rule**: Always use getters for locators in Page Object Models. Never use `readonly` or `const` for locator properties.
+Declare locators as getters, never as `readonly` fields or constants, so they are built fresh on each use. A locator that takes a parameter is a method returning `Locator`.
 
-**Rationale**: Getters ensure locators are always fresh and evaluated lazily, which is the recommended Playwright pattern.
+```ts
+get loginButton(): Locator {
+  return this.page.getByRole('button', { name: 'Login', exact: true });
+}
 
-### ✅ Correct
-```typescript
-export class LoginPage extends BasePage {
-  get emailInput(): Locator {
-    return this.page.getByRole('textbox', { name: 'Email Address', exact: true });
-  }
-
-  get submitButton(): Locator {
-    return this.page.getByRole('button', { name: 'Login', exact: true });
-  }
+cartItemRow(productName: string): Locator {
+  return this.page.getByRole('row').filter({ has: this.page.getByRole('heading', { name: productName, exact: true }) });
 }
 ```
 
-### ❌ Incorrect
-```typescript
-export class LoginPage extends BasePage {
-  readonly emailInput = this.page.getByRole('textbox', { name: 'Email Address', exact: true });
-  
-  // OR
-  
-  const submitButton = page.getByRole('button', { name: 'Login', exact: true });
-}
-```
+## 2. Selectors, then actions
 
-## 2. No Useless Comments
+Every page object extends `BasePage`, inheriting its constructor, and groups its getters under `// ========== SELECTORS ==========`, before its methods under `// ========== ACTIONS ==========`. Every method declares its return type.
 
-**Rule**: Remove all JSDoc comments that simply restate what the code does. Remove comments that describe obvious functionality. Keep only comments that explain "why" not "what".
+## 3. One deterministic locator per element
 
-**Rationale**: Code should be self-documenting. Comments that restate the code add noise and maintenance burden.
+Use the first strategy that works, in this order:
 
-### ✅ Correct
-```typescript
-get emailInput(): Locator {
-  return this.page.getByRole('textbox', { name: 'Email Address', exact: true });
-}
+1. `getByRole`
+2. `getByLabel`
+3. `getByText`
+4. `getByPlaceholder`
+5. `getByTestId` (the site's `data-qa` hooks), `getByTitle` or `getByAltText`
+6. `page.locator()` with CSS, scoped under a semantic locator where possible, with a comment saying why nothing better works
 
-async login(email: string, password: string): Promise<void> {
-  await this.emailInput.fill(email);
-  await this.passwordInput.fill(password);
-  await this.submitButton.click();
-}
-```
+Each locator must match exactly one element through one strategy:
+- No `.or()` fallback chains. Inspect the element and keep the locator that works.
+- No `.first()` or `.nth()` to silence strict mode. Scope or filter instead.
+- Exact names (`{ name: 'Login', exact: true }`), not loose regexes, unless the name contains noise such as an icon glyph.
+- No XPath.
 
-### ❌ Incorrect
-```typescript
-/**
- * Email input field locator using role
- */
-get emailInput(): Locator {
-  return this.page.getByRole('textbox', { name: 'Email Address', exact: true });
-}
-
-/**
- * Perform login with credentials
- */
-async login(email: string, password: string): Promise<void> {
-  await this.emailInput.fill(email);
-  await this.passwordInput.fill(password);
-  await this.submitButton.click();
-}
-```
-
-## 3. Actions and Selectors Must Be Separate
-
-**Rule**: Organize Page Object classes with clear separation: all selectors (getters) grouped together at the top, all actions (methods) grouped together at the bottom. Never mix selectors and actions randomly.
-
-**Rationale**: Clear organization improves readability and maintainability. It makes it easy to find selectors or actions.
-
-### ✅ Correct
-```typescript
-export class LoginPage extends BasePage {
-  constructor(page: Page) {
-    super(page);
-  }
-
-  // SELECTORS
-  get emailInput(): Locator {
-    return this.page.getByRole('textbox', { name: 'Email Address', exact: true });
-  }
-
-  get passwordInput(): Locator {
-    return this.page.getByLabel('Password', { exact: true });
-  }
-
-  get submitButton(): Locator {
-    return this.page.getByRole('button', { name: 'Login', exact: true });
-  }
-
-  // ACTIONS
-  async login(email: string, password: string): Promise<void> {
-    await this.emailInput.fill(email);
-    await this.passwordInput.fill(password);
-    await this.submitButton.click();
-  }
-
-  async goToForgotPassword(): Promise<void> {
-    await this.forgotPasswordLink.click();
-  }
-}
-```
-
-### ❌ Incorrect
-```typescript
-export class LoginPage extends BasePage {
-  get emailInput(): Locator { ... }
-  
-  async login(email: string, password: string): Promise<void> { ... }
-  
-  get passwordInput(): Locator { ... }
-  
-  async goToForgotPassword(): Promise<void> { ... }
-}
-```
-
-## 4. Always Use Playwright Locator Methods
-
-**Rule**: Always use Playwright's built-in locator methods (`getByRole()`, `getByLabel()`, `getByText()`, `getByPlaceholder()`, `getByTestId()`, etc.) instead of `page.locator()` with CSS selectors or XPath. Never use `page.locator()` with CSS/XPath unless absolutely necessary.
-
-**Rationale**: Playwright's locator methods are more reliable, accessible, and maintainable. They align with accessibility standards and are less brittle than CSS selectors. Using `page.locator()` with CSS selectors should be a last resort only when no Playwright locator method can find the element.
-
-### Locator Priority Order:
-1. `getByRole()` - **Highest priority** - Use for buttons, links, textboxes, headings, etc.
-2. `getByLabel()` - For form labels and labeled inputs
-3. `getByText()` - For text content matching
-4. `getByPlaceholder()` - For input placeholders
-5. `getByTestId()` - For test IDs (if available in the application)
-6. `getByTitle()` - For elements with title attributes
-7. `getByAltText()` - For images with alt text
-8. `page.locator()` with CSS/XPath - **Last resort only** - Use only when no Playwright method works
-
-### ✅ Correct
-```typescript
-get submitButton(): Locator {
-  return this.page.getByRole('button', { name: 'Submit', exact: true });
-}
-
-get cartLink(): Locator {
-  return this.page.getByRole('banner').getByRole('link', { name: 'Cart' });
-}
-
-get emailInput(): Locator {
-  return this.page.getByRole('textbox', { name: 'Email', exact: true });
-}
-
-get loginEmailInput(): Locator {
-  return this.page.getByTestId('login-email');
-}
-
-get errorMessage(): Locator {
-  return this.page.getByText('Your email or password is incorrect!', { exact: true });
-}
-
-get heading(): Locator {
-  return this.page.getByRole('heading', { level: 1 });
-}
-```
-
-### ❌ Incorrect
-```typescript
-get submitButton(): Locator {
-  return this.page.locator('button.submit-btn');
-}
-
-get navigationLink(): Locator {
-  return this.page.locator('a[href="/dashboard"]');
-}
-
-get emailInput(): Locator {
-  return this.page.locator('#email-input');
-}
-
-get passwordField(): Locator {
-  return this.page.locator('input[type="password"]');
-}
-
-get errorMessage(): Locator {
-  return this.page.locator('.error-message');
-}
-
-get heading(): Locator {
-  return this.page.locator('h1.title');
-}
-```
-
-### When `page.locator()` is Acceptable:
-Only use `page.locator()` when:
-- No Playwright locator method can reliably find the element
-- You need complex CSS selectors that cannot be expressed with Playwright methods
-- The element has no accessible properties (role, label, text, etc.)
-- You're working with legacy code that lacks semantic HTML
-
-Even in these cases, prefer combining Playwright locators (e.g., `page.getByRole('region').locator('.specific-class')`) over pure CSS selectors, and add a comment saying *why* no semantic locator works (e.g. "icon-only `<a>` with no href, text or label").
-
-### One deterministic locator per element
-
-Each getter must resolve to exactly one element through one strategy:
-
-- **No `.or()` fallback chains.** A chain like `getByRole(...).or(locator('.x')).or(locator('[class*=x]'))` means nobody checked which one matches. Inspect the element (`npx playwright codegen`, UI mode's locator picker, or `locator.ariaSnapshot()`) and keep the single locator that works.
-- **No `.first()` / `.nth()` to silence strict mode.** If a locator matches several elements, scope it (to a row, card, dialog or `banner`) or filter it (`filter({ has })`) until it matches one.
-- **Exact names over regexes.** Use `{ name: 'Login', exact: true }`, not `/login/i`. A loose regex matches more than you intended (e.g. `/consent/i` also matches "Do not consent"). Where the accessible name includes noise you can't control, such as icon-font glyphs in the nav links, use a plain-string (substring) name scoped to a small region.
-- **Use the app's test hooks** (`data-qa`, configured as `testIdAttribute`) when roles and labels are ambiguous, e.g. two "Email Address" fields on one page.
-
-```typescript
-// ❌ Fallback chain hiding an unverified locator
+```ts
+// Wrong: nobody checked which branch matches.
 get addToCartButton(): Locator {
-  return this.page.getByRole('button', { name: /add to cart/i })
-    .or(this.page.locator('a, button').filter({ hasText: /add to cart/i }))
-    .first();
+  return this.page.getByRole('button', { name: /add to cart/i }).or(this.page.locator('.add-to-cart')).first();
 }
 
-// ✅ Verified: the element is an <a> without href (no link role), scoped to its product card
+// Right: an <a> without href has no link role, so it is found by text inside its product card.
 addToCartButton(productName: string): Locator {
   return this.productCardByName(productName).locator('.productinfo').getByText('Add to cart', { exact: true });
 }
 ```
 
-## 5. Follow Playwright Community Standards
+## 4. Tests are grouped, stepped and web-first
 
-**Rule**: Always follow official Playwright documentation and best practices. Use recommended patterns from the Playwright community.
+- Group tests with `test.describe()`.
+- Split multi-phase tests into `test.step()`.
+- Assert with web-first `expect(locator)`, never `expect(await locator.isVisible()).toBe(true)`.
+- Assert the outcome the test name promises: values, text and counts, not just visibility.
+- Name tests as behaviour: `'should <outcome> [when <condition>]'`.
+- Keep tests independent of each other and of order.
+- Data-drive with a `for` loop over `test()` only when each case checks something distinct.
 
-**Rationale**: Following community standards ensures consistency, maintainability, and alignment with best practices. It also makes the codebase easier for other Playwright developers to understand.
-
-### Key Playwright Community Standards:
-- Use `test.describe()` for grouping related tests
-- Use `test.beforeEach()` and `test.afterEach()` for setup/teardown
-- Use proper assertions with `expect()` API
-- Use `page.waitForLoadState()` when waiting for page loads
-- Use `test.step()` for better test reporting and organization
-- Follow naming conventions (descriptive test names, clear describe blocks)
-- Use `test.info()` for test metadata when needed
-- Prefer `page.getByRole()` over CSS selectors
-- Use `test.setTimeout()` for tests that need longer timeouts
-- Use `test.use()` for test-specific configuration
-- Tag every test with exactly one pipeline tier (see [section 9](#9-tag-every-test-with-one-tier))
-- Data-drive a test with a `for` loop over `test()` only when each case checks something distinct (e.g. one test per required signup field), never just to add volume
-
-### ✅ Correct
-```typescript
-import { test, expect } from './fixtures';
-
+```ts
 test.describe('User Authentication', () => {
-  test('should display the login form', { tag: '@regression' }, async ({ loginPage }) => {
-    await expect(loginPage.emailInput).toBeVisible();
-    await expect(loginPage.passwordInput).toBeVisible();
-  });
+  test('should return to the login page when the user logs out', { tag: '@regression' }, async ({ loginPage, testUser }) => {
+    const homePage = await test.step('Log in', async () => loginPage.loginAs(testUser));
+    const loggedOutPage = await test.step('Log out', async () => homePage.logout());
 
-  test('should log out and return to the login page', { tag: '@regression' }, async ({ loginPage, testUser }) => {
-    const homePage = await test.step('Log in', async () => {
-      return loginPage.loginAs(testUser);
-    });
-
-    await test.step('Log out', async () => {
-      const loggedOutPage = await homePage.logout();
-      await expect(loggedOutPage.loginHeading).toBeVisible();
-    });
+    await expect(loggedOutPage.loginHeading).toBeVisible();
   });
 });
 ```
 
-### ❌ Incorrect
-```typescript
-// Not using describe blocks
-test('login form', async ({ page }) => {
-  // Not using proper assertions
-  const element = page.locator('.login-input');
-  if (await element.isVisible()) {
-    // ...
-  }
-  
-  // Using CSS selectors instead of role-based
-  await page.locator('button.submit-btn').click();
-});
+## 5. Fixtures, not `new`
+
+- Specs import `test` and `expect` from `./fixtures`, never from `@playwright/test`.
+- Tests never instantiate a page object or call `page.goto` for a page that has a fixture.
+- Every page fixture shares one `page` and navigates on setup, so a test requests only the fixture of the page it starts on.
+- Journeys continue through navigation methods that return the next page object.
+- Pages reached only through a journey (signup, product details, checkout, payment, confirmation) have no fixture.
+- UI shared across pages lives in `pages/components/`, exposed through a getter such as `productsPage.cartModal`.
+
+## 6. Always await, never swallow
+
+- Await every promise. ESLint rejects floating promises.
+- Never write `.catch(() => {})`. A swallowed error hides the real failure.
+- Check optional UI explicitly (`if (await x.count() > 0)`) or handle it with `addLocatorHandler`.
+
+## 7. No hard waits
+
+No `page.waitForTimeout()`, and no ad-hoc `{ timeout }` options to hide flakiness. Rely on auto-waiting, or wait on a real condition with `waitForURL`, `waitFor({ state })` or `expect`.
+
+## 8. Test data comes from the factory
+
+- Every input comes from `TestDataFactory`. Add a method rather than writing a literal in a spec.
+- Generated data (users, addresses, cards, contact details) uses faker and is unique per call.
+- Only the fixed catalogue (products, prices, search terms, listings) is hard-coded.
+- Accounts come only from the `testUser`, `newUser` and `authenticatedTest` fixtures, which always delete them.
+- The API is for setup and teardown. Tests never assert on API responses.
+
+## 9. Every test has one tier
+
+Tag every test with exactly one of `@smoke` or `@regression`. Extra tags such as `@a11y` and `@visual` are fine. The `requireTierTag` fixture fails a test that breaks this rule. Smoke runs on every pull request, so adding to it needs a reason.
+
+## 10. Accessibility fails only on new violations
+
+Wait for a known element, then assert that the scan finds nothing beyond the baseline:
+
+```ts
+await expect(loginPage.loginHeading).toBeVisible();
+expect(await accessibilityScanner.findNewViolations(ACCESSIBILITY_BASELINE.login)).toEqual([]);
 ```
 
-## 6. Use Fixtures to Speed Up Tests and for Clean Coding
+Each baseline entry names the rule, the exact `targets` and a `reason`. Leave out `targets` only when the count follows the catalogue. Remove an entry when the report says it no longer occurs.
 
-**Rule**: Always use custom fixtures for Page Object Models. Create fixtures that inject page objects into tests instead of instantiating them in each test.
+## 11. Visual checks cover stable regions
 
-**Rationale**: Fixtures provide several benefits:
-- **Speed**: Shared setup/teardown reduces test execution time
-- **Clean Code**: Tests focus on behavior, not setup
-- **Reusability**: Fixtures can be shared across multiple test files
-- **Automatic Cleanup**: Playwright handles cleanup automatically
-- **Type Safety**: TypeScript provides autocomplete and type checking
+Screenshot a region, not a page, and only regions without products, prices or user data. Mask anything that moves. Generate baselines only with `npm run test:visual:update`, which renders them in Docker like CI, and look at the PNGs before committing.
 
-### ✅ Correct
-```typescript
-// tests/fixtures.ts
-import { test as base } from '@playwright/test';
-import { LoginPage } from '../pages/LoginPage';
-
-type TestFixtures = {
-  loginPage: LoginPage;
-};
-
-export const test = base.extend<TestFixtures>({
-  loginPage: async ({ page }, use) => {
-    const loginPage = new LoginPage(page);
-    await loginPage.goto('/login');
-    await use(loginPage);
-  },
-});
-
-// tests/login.spec.ts
-import { test, expect } from './fixtures';
-
-test('should display login form elements', async ({ loginPage }) => {
-  await expect(loginPage.emailInput).toBeVisible();
-  await expect(loginPage.passwordInput).toBeVisible();
-  await expect(loginPage.submitButton).toBeVisible();
-});
+```ts
+await expect(homePage.footer).toHaveScreenshot('footer.png', { mask: [homePage.scrollUpButton] });
 ```
 
-### ❌ Incorrect
-```typescript
-// Instantiating page objects in each test
-test('should display login form elements', async ({ page }) => {
-  const loginPage = new LoginPage(page);
-  await loginPage.goto('/login');
-  await expect(loginPage.emailInput).toBeVisible();
-});
+## 12. Comments explain why
 
-test('should login with valid credentials', async ({ page }) => {
-  const loginPage = new LoginPage(page);
-  await loginPage.goto('/login');
-  await loginPage.login('user@example.com', 'password123');
-});
-```
+Comment only what the code can't say: a site quirk, a non-obvious constraint or the reason for a CSS locator. Never restate the code, and don't write JSDoc that repeats a name.
 
-### Fixture Best Practices:
-- Create fixtures in a dedicated `fixtures.ts` file
-- Export extended `test` object from fixtures
-- Use TypeScript types for fixture definitions
-- Initialize page objects in fixtures, not in tests
-- Use `use()` callback for proper cleanup
-- Share common setup across fixtures when possible
-- Create test accounts through the API in a fixture (`testUser`), never through the UI in a test's setup, and delete them in the fixture's teardown so cleanup runs even when the test fails
-- Reuse a logged-in session with `authenticatedTest` instead of logging in through the UI in every test
-- For tests that register through the UI, use `newUser`: a generated user that is not created up front, deleted afterwards only if it exists
-- Pages that can only be reached through a journey (signup, checkout, payment, order confirmation, product details) have no fixture; tests reach them through navigation methods that return the next page object
-- UI shared by several pages (e.g. the add-to-cart modal) is a component class in `pages/components/`, exposed through a getter on each page that shows it (`productsPage.cartModal.viewCart()`). Components take a `Page` but don't extend `BasePage`, because they aren't navigable
+## 13. Skips and quarantine have reasons
 
-```typescript
-test('should show the user as logged in when credentials are valid', async ({ loginPage, testUser }) => {
-  const homePage = await loginPage.loginAs(testUser);
-  await expect(homePage.loggedInAsText(testUser.name)).toBeVisible();
-});
-```
-
-## 7. Always Use Await, Never Silently Catch Errors
-
-**Rule**: Always use `await` for async operations. Never use `.catch(() => {})` to silently swallow errors. Ensure operations complete before proceeding to the next step.
-
-**Rationale**: Silently catching errors with `.catch(() => {})` hides failures and can cause timing issues in CI environments. Using `await` ensures:
-- Operations complete before proceeding
-- Errors are properly surfaced for debugging
-- Better reliability in CI/CD environments
-- Proper sequencing of async operations
-
-### ✅ Correct
-```typescript
-async navigateToProducts(): Promise<ProductsPage> {
-  await this.productsLink.click();
-  await this.page.waitForURL((url) => url.pathname === '/products');
-  await this.handleCookieConsent();
-  return new ProductsPage(this.page);
-}
-
-// Playwright waits for the dialog to be hidden after the handler runs.
-await page.addLocatorHandler(getGoogleSurveyDialog(page), async (dialog) => {
-  await dialog.getByRole('button', { name: 'Close' }).click();
-});
-```
-
-### ❌ Incorrect
-```typescript
-async navigateToProducts(): Promise<void> {
-  await this.productsLink.click();
-  this.handleCookieConsent().catch(() => {});
-  await this.page.waitForURL('**/products**');
-}
-
-async handleGoogleSurveyPopup(): Promise<void> {
-  const closeButton = getGoogleSurveyCloseButton(page);
-  await closeButton.first().click({ timeout: 2000 }).catch(() => {});
-  // No wait for popup to be hidden - may cause timing issues
-}
-```
-
-### Key Points:
-- Always `await` async operations to ensure they complete
-- Never use `.catch(() => {})` to silently ignore errors
-- Wait for operations to complete before proceeding (e.g., wait for popup to be hidden after clicking close)
-- Proper error handling improves CI reliability and debugging
-
-## 8. Test Data Comes From the Factory; the API Only Sets Up
-
-**Rule**: Every input a test uses comes from `TestDataFactory`. Generated data (users, addresses, cards, contact details) uses faker and is unique per call. Only the site's fixed catalogue (products, prices, search terms, category and brand listings) is hard-coded there. The `api/` layer is for setup and teardown only: tests never assert on API responses.
-
-**Rationale**: Unique data keeps tests independent and parallel-safe on a shared site. Keeping literals out of specs puts every input in one place. Testing the API through a browser suite gives slow, imprecise feedback; it belongs at a lower level.
-
-### ✅ Correct
-```typescript
-test('should show the user as logged in when credentials are valid', { tag: '@smoke' }, async ({ loginPage, testUser }) => {
-  const homePage = await loginPage.loginAs(testUser);
-  await expect(homePage.loggedInAsText(testUser.name)).toBeVisible();
-});
-```
-
-### ❌ Incorrect
-```typescript
-test('login works', async ({ loginPage, accountApi }) => {
-  await loginPage.login('qa.user@example.com', 'Passw0rd!');            // inline, shared credentials
-  expect(await accountApi.accountExists({ email: 'qa.user@example.com', password: 'Passw0rd!' })).toBe(true); // asserts on the API
-});
-```
-
-- Add a factory method when one is missing; don't build data inline.
-- Accounts are created only through `testUser`, `newUser` or `authenticatedTest`, which always delete them.
-
-## 9. Tag Every Test With One Tier
-
-**Rule**: Every test has exactly one of `@smoke` or `@regression`, set with the `tag` option. Extra tags group non-functional checks: `@a11y`, `@visual`.
-
-**Rationale**: The pipeline is built on tiers. Pull requests run `@smoke` on Chrome, `mobile-chrome` runs only `@smoke`, and `main` runs everything. An untagged test would silently drop out of a tier. The `requireTierTag` auto fixture fails any test without exactly one tier.
-
-```typescript
-test('should place an order for several products and confirm it', { tag: '@smoke' }, async (...) => {});
-test('should match the header baseline', { tag: ['@regression', '@visual'] }, async (...) => {});
-```
-
-Smoke is the handful of journeys that prove the site is usable: home page, login, session, registration, search, add to cart and checkout. Adding to it slows every pull request, so it needs a reason. See [TEST_STRATEGY.md](TEST_STRATEGY.md) for the risk ranking behind it.
-
-## 10. Accessibility Checks Fail Only on New Violations
-
-**Rule**: An accessibility test waits for a known element, scans with the `accessibilityScanner` fixture, and expects no violations beyond the page's baseline. Each baseline entry in `test-data/accessibilityBaseline.ts` names the rule, the exact `targets` and a `reason`.
-
-**Rationale**: The site already has violations it won't fix. Failing on them forever teaches people to ignore the test. Accepting them with no record hides them. A documented baseline keeps both the known debt and any new regression visible.
-
-```typescript
-test('should have no WCAG violations beyond the baseline on the login page', { tag: ['@regression', '@a11y'] }, async ({ loginPage, accessibilityScanner }) => {
-  await expect(loginPage.loginHeading).toBeVisible();
-
-  expect(await accessibilityScanner.findNewViolations(ACCESSIBILITY_BASELINE.login)).toEqual([]);
-});
-```
-
-- Leave `targets` out only when the number of elements follows the catalogue (e.g. low-contrast text on every product card).
-- Never add a baseline entry to make a new violation pass. When the report notes that an entry no longer occurs, remove it.
-
-## 11. Visual Checks Cover Stable Regions, Rendered in Docker
-
-**Rule**: Screenshot a region (header, footer, sidebar, empty state) with `expect(locator).toHaveScreenshot('name.png')`, not a whole page. Pick regions without products, prices or user data, and `mask` anything that still moves. Baselines are generated only with `npm run test:visual:update`, which renders them in the Playwright Linux image on amd64, like CI.
-
-**Rationale**: Whole-page screenshots of a live catalogue fail on every content change, so they get ignored. Rendering differs between macOS, Linux, arm64 and amd64, so a baseline from a laptop never matches CI.
-
-### ✅ Correct
-```typescript
-test('should match the footer baseline', { tag: ['@regression', '@visual'] }, async ({ homePage }) => {
-  await expect(homePage.footer).toHaveScreenshot('footer.png', { mask: [homePage.scrollUpButton] });
-});
-```
-
-### ❌ Incorrect
-```typescript
-test('home page looks right', async ({ page, homePage }) => {
-  await expect(page).toHaveScreenshot({ fullPage: true, maxDiffPixelRatio: 0.2 }); // live products, loose threshold
-});
-```
-
-- Review the PNGs in `tests/__screenshots__/` before committing a new or updated baseline.
-- After upgrading Playwright, update the image tag in the workflow and regenerate every baseline.
-
-## Summary Checklist
-
-When writing or reviewing code, ensure:
-- [ ] All locators use getters (not readonly/const)
-- [ ] No useless comments that restate the code
-- [ ] Selectors and actions are clearly separated with section comments (`// SELECTORS` and `// ACTIONS`)
-- [ ] Playwright locator methods (`getByRole()`, `getByLabel()`, `getByText()`, etc.) are used instead of `page.locator()` with CSS selectors
-- [ ] One deterministic locator per element: no `.or()` fallback chains, no `.first()` hiding ambiguity, exact names
-- [ ] Assertions check the business outcome the test name promises (values, text, counts), not just visibility
-- [ ] Code follows Playwright community standards (`test.describe()`, `test.step()`, proper assertions)
-- [ ] Custom fixtures are used for Page Object Models
-- [ ] Tests use fixtures instead of instantiating page objects in each test
-- [ ] TypeScript types are properly used for fixtures and page objects
-- [ ] All page objects extend `BasePage` with consistent constructor pattern
-- [ ] Every test has exactly one of `@smoke` / `@regression`
-- [ ] Inputs come from `TestDataFactory`; accounts come only from the account fixtures; the API is used for setup only
-- [ ] Accessibility tests compare against the documented baseline; new entries name exact targets and a reason
-- [ ] Visual tests screenshot stable regions, mask what moves, and use baselines rendered in Docker
-- [ ] All async operations use `await` (no silent error catching with `.catch(() => {})`)
-
+Every `test.skip()` or `test.fixme()` carries a reason, and a quarantine links its Issue. Never commit `test.only`.
