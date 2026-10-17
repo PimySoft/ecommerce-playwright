@@ -1,4 +1,4 @@
-import { Page, Locator } from '@playwright/test';
+import { Locator } from '@playwright/test';
 import { BasePage } from './BasePage';
 import { ProductsPage } from './ProductsPage';
 import { CartPage } from './CartPage';
@@ -6,10 +6,6 @@ import { LoginPage } from './LoginPage';
 import { AccountDeletedPage } from './AccountDeletedPage';
 
 export class HomePage extends BasePage {
-  constructor(page: Page) {
-    super(page);
-  }
-
   // ========== SELECTORS ==========
 
   get header(): Locator {

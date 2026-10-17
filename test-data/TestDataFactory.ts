@@ -1,5 +1,4 @@
 import { faker } from '@faker-js/faker';
-import { ContactFormData } from '../pages/ContactPage';
 
 export interface Product {
   name: string;
@@ -47,6 +46,13 @@ export interface User extends Credentials {
   title: 'Mr' | 'Mrs';
   birthDate: Date;
   address: Address;
+}
+
+export interface ContactFormData {
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
 }
 
 export interface PaymentCard {
@@ -115,11 +121,9 @@ export class TestDataFactory {
     return faker.lorem.sentence();
   }
 
-  static getSearchTerms() {
+  static getSearchTerms(): Record<'blue' | 'empty' | 'nonexistent', string> {
     return {
       blue: 'blue',
-      men: 'men',
-      dress: 'dress',
       empty: '',
       nonexistent: 'nonexistentproductxyz123',
     };
@@ -183,13 +187,8 @@ export class TestDataFactory {
     return TestDataFactory.createUniqueEmail(faker.person.firstName(), faker.person.lastName());
   }
 
-  static getInvalidEmailFormats() {
-    return {
-      noAtSymbol: 'invalid-email',
-      noDomain: 'test@',
-      noTld: 'test@example',
-      empty: '',
-    };
+  static getEmailWithoutAtSymbol(): string {
+    return 'invalid-email';
   }
 
   static createContactFormData(overrides?: Partial<ContactFormData>): ContactFormData {
@@ -202,14 +201,6 @@ export class TestDataFactory {
     };
   }
 
-  static createInvalidContactFormData(): Partial<ContactFormData> {
-    return {
-      name: '',
-      email: 'invalid-email',
-      subject: '',
-      message: '',
-    };
-  }
 
   private static createUniqueEmail(firstName: string, lastName: string): string {
     const token = faker.string.alphanumeric({ length: 10, casing: 'lower' });

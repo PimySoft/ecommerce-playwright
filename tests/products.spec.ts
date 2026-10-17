@@ -17,7 +17,7 @@ test.describe('Products Page', () => {
     });
   });
 
-  test('should add product to cart and show confirmation modal', { tag: '@smoke' }, async ({ productsPage }) => {
+  test('should confirm the product was added when it is added to the cart', { tag: '@smoke' }, async ({ productsPage }) => {
     const product = TestDataFactory.getProducts().menTshirt;
 
     await test.step('Add product to cart', async () => {

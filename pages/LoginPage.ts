@@ -1,14 +1,10 @@
-import { Page, Locator } from '@playwright/test';
+import { Locator } from '@playwright/test';
 import { BasePage } from './BasePage';
 import { HomePage } from './HomePage';
 import { SignupPage } from './SignupPage';
 import { Credentials } from '../test-data/TestDataFactory';
 
 export class LoginPage extends BasePage {
-  constructor(page: Page) {
-    super(page);
-  }
-
   // ========== SELECTORS ==========
 
   get loginHeading(): Locator {
@@ -24,16 +20,17 @@ export class LoginPage extends BasePage {
     return this.page.getByRole('textbox', { name: 'Password', exact: true });
   }
 
+  // Constraint validation has no accessibility-tree equivalent, so it is read through :invalid.
+  get invalidEmailInput(): Locator {
+    return this.emailInput.and(this.page.locator(':invalid'));
+  }
+
   get loginButton(): Locator {
     return this.page.getByRole('button', { name: 'Login', exact: true });
   }
 
   get errorMessage(): Locator {
     return this.page.getByText('Your email or password is incorrect!', { exact: true });
-  }
-
-  get signupHeading(): Locator {
-    return this.page.getByRole('heading', { name: 'New User Signup!', exact: true });
   }
 
   get signupNameInput(): Locator {

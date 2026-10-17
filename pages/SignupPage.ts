@@ -1,4 +1,4 @@
-import { Page, Locator } from '@playwright/test';
+import { Locator } from '@playwright/test';
 import { BasePage } from './BasePage';
 import { AccountCreatedPage } from './AccountCreatedPage';
 import { User } from '../test-data/TestDataFactory';
@@ -10,10 +10,6 @@ export const REQUIRED_SIGNUP_FIELDS = [
 export type RequiredSignupField = typeof REQUIRED_SIGNUP_FIELDS[number];
 
 export class SignupPage extends BasePage {
-  constructor(page: Page) {
-    super(page);
-  }
-
   // ========== SELECTORS ==========
 
   get accountInformationHeading(): Locator {

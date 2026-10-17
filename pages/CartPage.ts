@@ -1,13 +1,9 @@
-import { Page, Locator } from '@playwright/test';
+import { Locator } from '@playwright/test';
 import { BasePage } from './BasePage';
 import { CheckoutPage } from './CheckoutPage';
 import { LoginPage } from './LoginPage';
 
 export class CartPage extends BasePage {
-  constructor(page: Page) {
-    super(page);
-  }
-
   // ========== SELECTORS ==========
 
   // An unnamed <section>, so it has no region role.

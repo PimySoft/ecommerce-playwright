@@ -38,7 +38,8 @@ export class CartModal {
 
   async viewCart(): Promise<CartPage> {
     await this.viewCartLink.click();
-    // cart.js binds the remove handlers at end of body; acting before `load` makes clicks no-ops.
+    // cart.js binds the remove handlers at end of body, so this keeps waitForURL's default `load`: acting before it
+    // makes clicks no-ops.
     await this.page.waitForURL((url) => url.pathname === '/view_cart');
     return new CartPage(this.page);
   }

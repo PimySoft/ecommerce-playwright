@@ -1,18 +1,8 @@
-import { Page, Locator } from '@playwright/test';
+import { Locator } from '@playwright/test';
 import { BasePage } from './BasePage';
-
-export interface ContactFormData {
-  name: string;
-  email: string;
-  subject: string;
-  message: string;
-}
+import { ContactFormData } from '../test-data/TestDataFactory';
 
 export class ContactPage extends BasePage {
-  constructor(page: Page) {
-    super(page);
-  }
-
   // ========== SELECTORS ==========
 
   get contactHeading(): Locator {
@@ -52,8 +42,9 @@ export class ContactPage extends BasePage {
     await this.messageTextarea.fill(formData.message);
   }
 
-  async submitFormAndHandleAlert(): Promise<void> {
-    this.page.once('dialog', async dialog => {
+  // The form asks for confirmation through a JS confirm() before it submits.
+  async submit(): Promise<void> {
+    this.page.once('dialog', async (dialog) => {
       await dialog.accept();
     });
     await this.submitButton.click();

@@ -1,12 +1,8 @@
-import { Page, Locator } from '@playwright/test';
+import { Locator } from '@playwright/test';
 import { BasePage } from './BasePage';
 import { HomePage } from './HomePage';
 
 export class AccountCreatedPage extends BasePage {
-  constructor(page: Page) {
-    super(page);
-  }
-
   // ========== SELECTORS ==========
 
   get accountCreatedHeading(): Locator {
