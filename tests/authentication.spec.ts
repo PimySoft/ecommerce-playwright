@@ -11,7 +11,7 @@ test.describe('User Authentication', () => {
 
   test('should show the user as logged in when credentials are valid', { tag: '@smoke' }, async ({ loginPage, testUser }) => {
     const homePage = await test.step('Log in with the API-created account', async () => {
-      return await loginPage.loginAs(testUser);
+      return loginPage.loginAs(testUser);
     });
 
     await test.step('Verify the header shows the logged-in user', async () => {
@@ -19,7 +19,7 @@ test.describe('User Authentication', () => {
     });
   });
 
-  test('should display error message when login credentials are invalid', { tag: '@regression' }, async ({ loginPage }) => {
+  test('should reject login when the credentials are invalid', { tag: '@regression' }, async ({ loginPage }) => {
     const invalidCredentials = TestDataFactory.createUnregisteredCredentials();
 
     await test.step('Attempt login with invalid credentials', async () => {
@@ -31,17 +31,17 @@ test.describe('User Authentication', () => {
     });
   });
 
-  test('should reject invalid email format in login form', { tag: '@regression' }, async ({ loginPage }) => {
-    const invalidEmail = TestDataFactory.getInvalidEmailFormats().noAtSymbol;
-    const invalidCredentials = TestDataFactory.createUnregisteredCredentials();
-    await loginPage.emailInput.fill(invalidEmail);
-    await loginPage.passwordInput.fill(invalidCredentials.password);
-    await loginPage.loginButton.click();
-    await loginPage.emailInput.blur();
+  test('should block login when the email has no @ symbol', { tag: '@regression' }, async ({ loginPage }) => {
+    const { password } = TestDataFactory.createUnregisteredCredentials();
 
-    await expect.poll(async () => {
-      return await loginPage.emailInput.evaluate((el: HTMLInputElement) => el.validity.valid);
-    }).toBeFalsy();
+    await test.step('Submit an email without an @ symbol', async () => {
+      await loginPage.login(TestDataFactory.getEmailWithoutAtSymbol(), password);
+    });
+
+    await test.step('Verify the browser rejects the email and stays on the login form', async () => {
+      await expect(loginPage.invalidEmailInput).toBeVisible();
+      await expect(loginPage.loginHeading).toBeVisible();
+    });
   });
 
   test('should return to the login page as a guest when the user logs out', { tag: '@regression' }, async ({ loginPage, testUser }) => {

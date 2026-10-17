@@ -1,12 +1,8 @@
-import { Page, Locator } from '@playwright/test';
+import { Locator } from '@playwright/test';
 import { BasePage } from './BasePage';
 import { PaymentPage } from './PaymentPage';
 
 export class CheckoutPage extends BasePage {
-  constructor(page: Page) {
-    super(page);
-  }
-
   // ========== SELECTORS ==========
 
   get deliveryAddress(): Locator {
@@ -15,10 +11,6 @@ export class CheckoutPage extends BasePage {
 
   get billingAddress(): Locator {
     return this.addressBlock('Your billing address');
-  }
-
-  get reviewOrderHeading(): Locator {
-    return this.page.getByRole('heading', { name: 'Review Your Order', exact: true });
   }
 
   orderItemRow(productName: string): Locator {

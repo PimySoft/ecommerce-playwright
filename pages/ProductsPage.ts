@@ -1,4 +1,4 @@
-import { Page, Locator } from '@playwright/test';
+import { Locator } from '@playwright/test';
 import { BasePage } from './BasePage';
 import { ProductDetailsPage } from './ProductDetailsPage';
 import { CartModal } from './components/CartModal';
@@ -13,10 +13,6 @@ function exactText(text: string): RegExp {
 
 // Covers /products and the category and brand listings, which share its layout.
 export class ProductsPage extends BasePage {
-  constructor(page: Page) {
-    super(page);
-  }
-
   // ========== SELECTORS ==========
 
   get searchInput(): Locator {
