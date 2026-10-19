@@ -1,4 +1,4 @@
-import { Page, Locator } from '@playwright/test';
+import { Locator } from '@playwright/test';
 import { readFile } from 'fs/promises';
 import { BasePage } from './BasePage';
 
@@ -8,10 +8,6 @@ export interface Invoice {
 }
 
 export class OrderConfirmationPage extends BasePage {
-  constructor(page: Page) {
-    super(page);
-  }
-
   // ========== SELECTORS ==========
 
   get orderPlacedHeading(): Locator {

@@ -2,7 +2,25 @@ import { test, expect } from './fixtures';
 import { TestDataFactory } from '../test-data/TestDataFactory';
 
 test.describe('Shopping Cart', () => {
-  test('should successfully remove product from cart and update cart display', { tag: '@regression' }, async ({ productsPage }) => {
+  test('should show the added product with its price, quantity and total', { tag: '@regression' }, async ({ productsPage }) => {
+    const product = TestDataFactory.getProducts().blueTop;
+    const price = TestDataFactory.formatPrice(product.price);
+
+    const cartPage = await test.step('Add product to cart', async () => {
+      await productsPage.addProductToCart(product.name);
+      await expect(productsPage.cartModal.message).toBeVisible();
+      return productsPage.cartModal.viewCart();
+    });
+
+    await test.step('Verify the line item', async () => {
+      await expect(cartPage.cartItemRow(product.name)).toBeVisible();
+      await expect(cartPage.cartItemPrice(product.name)).toHaveText(price);
+      await expect(cartPage.cartItemQuantity(product.name)).toHaveText('1');
+      await expect(cartPage.cartItemTotal(product.name)).toHaveText(price);
+    });
+  });
+
+  test('should empty the cart when its only product is removed', { tag: '@regression' }, async ({ productsPage }) => {
     const productName = TestDataFactory.getProducts().menTshirt.name;
 
     const cartPage = await test.step('Add product to cart', async () => {

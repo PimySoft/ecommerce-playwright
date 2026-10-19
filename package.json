@@ -1,19 +1,15 @@
 {
   "name": "e-commerce-playwright",
   "version": "1.0.0",
-  "description": "Playwright automation tests for e-commerce playground",
+  "description": "Playwright end-to-end tests for the automationexercise.com demo shop",
   "scripts": {
     "test": "playwright test",
-    "test:headless": "playwright test",
     "test:headed": "playwright test --headed",
     "test:smoke": "playwright test --grep @smoke",
     "test:regression": "playwright test --grep @regression",
     "test:chrome": "playwright test --project=chrome",
-    "test:chrome:headed": "playwright test --project=chrome --headed",
     "test:firefox": "playwright test --project=firefox",
-    "test:firefox:headed": "playwright test --project=firefox --headed",
     "test:safari": "playwright test --project=safari",
-    "test:safari:headed": "playwright test --project=safari --headed",
     "test:mobile": "playwright test --project=mobile-chrome",
     "test:a11y": "playwright test --grep @a11y",
     "test:visual": "bash scripts/run-visual-in-docker.sh",
@@ -28,7 +24,7 @@
     "testing",
     "automation"
   ],
-  "author": "",
+  "author": "Rocco Salvetti",
   "license": "MIT",
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",

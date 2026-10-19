@@ -3,148 +3,112 @@
 [![Playwright Tests](https://github.com/PimySoft/ecommerce-playwright/actions/workflows/playwright.yml/badge.svg?branch=main)](https://github.com/PimySoft/ecommerce-playwright/actions/workflows/playwright.yml)
 [![Test report](https://img.shields.io/badge/report-latest-2ea44f?logo=playwright)](https://pimysoft.github.io/ecommerce-playwright/)
 
-An end-to-end test suite for the public demo shop [automationexercise.com](https://automationexercise.com), written in TypeScript with `@playwright/test`. It uses the Page Object Model with custom fixtures, and uses the site's API to create and delete test accounts but tests only through the browser. Alongside the functional journeys it checks accessibility against a documented baseline, compares stable page regions with screenshots, and runs the core journeys on a phone viewport. CI runs smoke tests on every pull request and the full suite on Chrome, Firefox, WebKit and a Pixel 7 for `main` and every night. The [latest report](https://pimysoft.github.io/ecommerce-playwright/) is published to GitHub Pages.
-
-## Tech stack
-
-| Area | Tool |
-| --- | --- |
-| Test runner | `@playwright/test`, pinned (Chrome, Firefox, WebKit and Pixel 7 projects) |
-| Language | TypeScript, `strict: true` |
-| Test data | `@faker-js/faker`, through `TestDataFactory` |
-| Static checks | `typescript-eslint` + `eslint-plugin-playwright` |
-| CI | GitHub Actions ([playwright.yml](.github/workflows/playwright.yml)), report on GitHub Pages |
-| Accessibility | `@axe-core/playwright`, WCAG 2.1 A/AA |
-| Visual | `toHaveScreenshot()`, baselines rendered in the Playwright Docker image |
+Browser end-to-end tests for the demo shop [automationexercise.com](https://automationexercise.com), in TypeScript with `@playwright/test`. The suite covers the shopper's journeys on Chrome, Firefox, WebKit and a Pixel 7, plus accessibility and visual checks. The [latest report](https://pimysoft.github.io/ecommerce-playwright/) is on GitHub Pages.
 
 ## Quick start
 
 ```bash
 npm ci
 npx playwright install        # add --with-deps on Linux
-
-npm test                      # all projects, headless
+npx playwright install chrome # only if Google Chrome isn't installed; the chrome project uses it
 npm run test:chrome           # one browser
-npm run test:smoke            # what pull requests run (on Chrome)
-npm run test:regression
-npm run test:mobile           # @smoke on a Pixel 7 viewport
-npm run test:a11y             # accessibility checks
-npm run test:visual           # visual checks, in Docker (needs Docker running)
-npm run test:visual:update    # re-render the baselines in Docker
-npm run test:headed           # watch it run
-npx playwright test --ui      # debug in UI mode
-npx playwright show-report    # open the last HTML report
-
-npm run typecheck
-npm run lint
+npm test                      # every project
+npm run test:smoke            # what pull requests run
+npm run test:visual           # visual checks, in Docker
+npm run typecheck && npm run lint
 ```
 
-No credentials are needed: every test account is generated for the run and deleted afterwards. Visual tests skip themselves outside Docker, because screenshots only match when rendered on the same OS, CPU architecture and browser build as CI.
+No credentials are needed. Every test account is created for the run and deleted afterwards.
 
-## Project structure
+## Stack
+
+- `@playwright/test`, pinned, because the visual baselines depend on the browser build.
+- TypeScript with `strict: true`.
+- ESLint with `typescript-eslint` and `eslint-plugin-playwright`, which enforce most of the coding standards.
+- `@faker-js/faker` for generated test data.
+- `@axe-core/playwright` for WCAG 2.1 A/AA checks.
+- GitHub Actions for CI, with the merged report published to GitHub Pages.
+
+## Structure
 
 ```
-api/
-  AccountApiClient.ts   typed client for creating and deleting accounts (test setup only)
-accessibility/
-  AccessibilityScanner.ts  axe-core scan that reports only violations missing from the baseline
-pages/                  page objects; each extends BasePage
-  BasePage.ts           goto(), cookie-consent fallback, waiting for image-heavy pages
-  components/           UI shared across pages, such as the add-to-cart modal
-tests/
-  fixtures.ts           extended test: ad blocking, consent seeding, popup handler,
-                        page-object fixtures, test accounts, logged-in sessions, tag check
-  *.spec.ts             one spec per feature area
-  __screenshots__/      visual baselines
-test-data/
-  TestDataFactory.ts    single source for test inputs
-  accessibilityBaseline.ts  known site violations, each with a reason
-scripts/
-  run-visual-in-docker.sh   runs the visual project in the same image as CI
-playwright.config.ts    projects, retries, traces, reporters, baseURL
-eslint.config.mjs       lint rules that enforce the coding standards
-.github/                CI pipeline, PR template, CODEOWNERS
+tests/fixtures.ts     the extended test: ad blocking, consent, popup handler, page objects, accounts, tag check
+tests/*.spec.ts       one spec per feature area
+pages/                page objects, each extending BasePage; shared UI in pages/components/
+api/                  account client, used for test setup only
+accessibility/        axe-core scanner that reports only violations missing from the baseline
+test-data/            TestDataFactory and the accessibility baseline
+scripts/              runs the visual tests in the same Docker image as CI
 ```
-
-## Architecture
 
 ```mermaid
 flowchart LR
-  Spec["*.spec.ts"] -->|"import { test, expect }"| Fixtures["tests/fixtures.ts"]
+  Spec["*.spec.ts"] --> Fixtures["tests/fixtures.ts"]
   Spec --> Data["TestDataFactory"]
-  Fixtures -->|"page fixture: block ads, seed consent, survey handler"| Page["Playwright Page"]
-  Fixtures -->|"homePage, productsPage, cartPage, loginPage, contactPage"| POM["Page objects (pages/*)"]
-  Fixtures -->|"testUser, newUser, authenticatedTest"| Api["api/AccountApiClient"]
-  Fixtures -->|"accessibilityScanner"| A11y["AccessibilityScanner (axe-core)"]
-  A11y --> Page
-  Fixtures --> Data
-  POM -->|extends| Base["BasePage"]
-  POM --> Page
-  Page -->|"behaviour under test"| Site["automationexercise.com"]
+  Fixtures --> POM["Page objects"]
+  Fixtures --> Api["AccountApiClient"]
+  POM --> Site["automationexercise.com"]
   Api -->|"setup and teardown only"| Site
 ```
 
 ## Design decisions
 
-- **Page objects are provided as fixtures.** Specs never call `new` on a page object or `page.goto` for it. Each fixture builds its page object and opens the page before the test body runs, so a test starts with the page it needs (`async ({ cartPage }) => …`). Journeys continue through methods that return the next page object. Page objects declare locators as getters and keep selectors and actions in separate sections.
-- **One deterministic locator per element.** The preference order is role, then label, text, placeholder and test id (the site's own `data-qa` hooks), with scoped CSS as a last resort. There are no `.or()` fallback chains, no `.first()` to hide ambiguity and no XPath. Each locator was checked against the live accessibility tree.
-- **The API sets up and the browser tests.** The `testUser` fixture creates an account through the site's API before a test and deletes it afterwards, even when the test fails. `authenticatedTest` logs in through the UI once per worker and reuses the session, so most logged-in tests skip the login form. Each worker gets its own account because the cart belongs to the account.
-- **Third-party noise is removed at the network layer instead of handled with waits.** Ad networks inject full-screen interstitials and delay the load event, so the `page` fixture aborts their requests with `page.route`. Cookie consent is pre-set in `localStorage` with `addInitScript`. A Google survey dialog is dismissed by `addLocatorHandler` whenever it appears. The suite has no hard waits, and ESLint enforces that.
-- **The ad script rewrites words in product titles into links.** So products are located by filtering the product card with `hasText` instead of by matching nested title text.
-- **Accessibility fails only on what's new.** The site has violations it will never fix, such as icon-only buttons and low-contrast text. They are recorded per page with a reason in `accessibilityBaseline.ts`, and any other violation fails the test. If a recorded violation disappears, the report says so, so the baseline can be pruned.
-- **Visual tests are deterministic or they aren't run.** They screenshot regions that only change with a redesign (header, footer, empty cart, category sidebar) and mask the floating scroll button. Baselines are rendered in the `mcr.microsoft.com/playwright` image on amd64, and CI compares them in the same image. CI also fails if the image tag drifts from the pinned Playwright version.
-- **Mobile runs smoke only.** A phone viewport needs to prove the core journeys work. The regression detail is browser logic, which the desktop projects already cover.
-- **Browser behaviour only.** API, unit and contract tests are out of scope. They belong at lower levels of the test pyramid, where they run faster and fail with more precise errors. This suite stays thin and covers the user journeys that only a browser can verify.
+- **Page objects come from fixtures.** A test asks for the page it starts on (`async ({ cartPage }) => …`) and follows the journey through methods that return the next page object.
+- **One verified locator per element.** Role first, then label, text, placeholder and the site's `data-qa` hooks, with scoped CSS as a last resort. No fallback chains, no `.first()`, no XPath.
+- **The API sets up and the browser tests.** Fixtures create each account through the API and delete it even when the test fails. Logged-in tests reuse one session per worker.
+- **Third-party noise is removed, not waited out.** Ads are blocked at the network layer, cookie consent is pre-set and a Google survey is dismissed by a locator handler. There are no hard waits.
+- **Accessibility fails only on new violations.** Known site issues are recorded with a reason in `test-data/accessibilityBaseline.ts`.
+- **Visual checks are deterministic.** They capture regions that only change with a redesign, and baselines are rendered and compared in the Playwright Docker image.
+- **Browser behaviour only.** API, unit and contract tests belong lower in the pyramid. See [TEST_STRATEGY.md](TEST_STRATEGY.md).
 
-## Test coverage
+## Coverage
 
-Every test is tagged `@smoke` or `@regression`, and a fixture fails any test that isn't. Smoke is the handful of journeys that prove the site works, and the `mobile-chrome` project runs all of them on a Pixel 7.
+Every test is tagged `@smoke` or `@regression`, and a fixture fails any test that isn't.
 
-| Journey | What is verified | Spec | Tag |
-| --- | --- | --- | --- |
-| Registration | Sign up with a generated user, "Logged in as", delete the account through the UI | [registration.spec.ts](tests/registration.spec.ts) | `@smoke` |
-| Registration validation | Already-registered email is rejected; each required field blocks account creation (data-driven, one test per field) | [registration.spec.ts](tests/registration.spec.ts) | `@regression` |
-| Login | Valid login with an API-created user | [authentication.spec.ts](tests/authentication.spec.ts) | `@smoke` |
-| Login and logout | Login form, invalid credentials, invalid email format, logout | [authentication.spec.ts](tests/authentication.spec.ts) | `@regression` |
-| Authenticated session | Reused `storageState` shows the user as logged in without a UI login | [session.spec.ts](tests/session.spec.ts) | `@smoke` |
-| Checkout | Log in, add several products, verify delivery/billing address and order review, pay, order confirmation | [checkout.spec.ts](tests/checkout.spec.ts) | `@smoke` |
-| Invoice download | Download after payment; file name and contents (buyer and total) | [checkout.spec.ts](tests/checkout.spec.ts) | `@regression` |
-| Product details | Name, category, price, availability, condition and brand; add to cart with a custom quantity | [product-details.spec.ts](tests/product-details.spec.ts) | `@regression` |
-| Search and add to cart | Every result matches the term; add-to-cart confirmation | [products.spec.ts](tests/products.spec.ts) | `@smoke` |
-| Search edge cases | Empty search lists everything; no-match search lists nothing | [products.spec.ts](tests/products.spec.ts) | `@regression` |
-| Category and brand filters | Filtered listing shows exactly the catalogue's products for that category or brand | [products.spec.ts](tests/products.spec.ts) | `@regression` |
-| Cart | Remove a product; empty cart blocks checkout; guest is asked to log in at checkout and keeps the cart after logging in | [cart.spec.ts](tests/cart.spec.ts) | `@regression` |
-| Guest purchase path | Home → products → add to cart → price, quantity and total in the cart | [e2e-workflow.spec.ts](tests/e2e-workflow.spec.ts) | `@regression` |
-| Home page | Navigation links and heading | [homepage.spec.ts](tests/homepage.spec.ts) | `@smoke` |
-| Subscription | Footer newsletter subscription shows the success message | [subscription.spec.ts](tests/subscription.spec.ts) | `@regression` |
-| Contact | Contact form submission | [contact.spec.ts](tests/contact.spec.ts) | `@regression` |
-| Accessibility | No WCAG 2.1 A/AA violations beyond the baseline on the home, products, cart, login and contact pages | [accessibility.spec.ts](tests/accessibility.spec.ts) | `@regression` `@a11y` |
-| Visual | Header, footer, empty cart and category sidebar match their baselines | [visual.spec.ts](tests/visual.spec.ts) | `@regression` `@visual` |
+Smoke, which pull requests and the Pixel 7 run:
+- Home page navigation and heading.
+- Login with a valid account, and a reused logged-in session.
+- Registration through the UI, ending with account deletion.
+- Search results that all match the term, and the add-to-cart confirmation.
+- Checkout with several products: addresses, order review, payment and confirmation.
+
+Regression:
+- Login form, invalid credentials, invalid email format and logout.
+- Signup with an existing email, and each required signup field left empty.
+- Empty and no-match searches, and category and brand filters.
+- Product details, and adding a chosen quantity to the cart.
+- Cart line items, removal, empty cart, and a guest cart that survives login.
+- Invoice download after an order.
+- Contact form and newsletter subscription.
+- Accessibility on five key pages (`@a11y`), and four visual regions (`@visual`).
 
 ## CI
 
-[playwright.yml](.github/workflows/playwright.yml) type-checks and lints first, then runs the tests as a matrix of browser projects and shards.
+[playwright.yml](.github/workflows/playwright.yml) runs the type check and lint before any tests.
 
-| Trigger | Browsers | Tests | Shards per browser |
-| --- | --- | --- | --- |
-| Pull request to `main` | Chrome | `@smoke` | 1 |
-| Push to `main` | Chrome, Firefox, WebKit, Pixel 7, visual | all | 2 (Pixel 7 and visual: 1) |
-| Nightly (03:00 UTC) | Chrome, Firefox, WebKit, Pixel 7, visual | all | 2 (Pixel 7 and visual: 1) |
-| Manual (`workflow_dispatch`) | chosen project or all | chosen tag or all | 1 for `@smoke`, otherwise 2 |
+1. **Pull request:** `@smoke` on Chrome.
+2. **Push to `main` and nightly at 03:00 UTC:** every project, desktop browsers in two shards each, plus the visual job in Docker. A failed nightly opens or updates an Issue labelled `nightly-failure`.
+3. **Manual:** a chosen project and tag.
 
-- Visual tests run in their own job inside the `mcr.microsoft.com/playwright` container, the same image their baselines were rendered in. On failure it uploads the expected, actual and diff images.
-- Each shard writes a `blob` report. A merge job combines them into one HTML report, uploads it as the `playwright-report` artifact and, for runs on `main`, publishes it to [GitHub Pages](https://pimysoft.github.io/ecommerce-playwright/).
-- Failed shards also upload `test-results/` (traces and screenshots). Traces are recorded on the first retry.
-- A failed nightly run opens an Issue labelled `nightly-failure`, or comments on the one already open.
-- npm packages and the Firefox and WebKit downloads are cached. The `chrome` project uses the Google Chrome build that the runner image ships.
-- At most four test jobs run at once, and each uses one worker, because the target is a shared public site.
-- On CI, failed tests are retried twice and `test.only` fails the run.
+Shards' reports are merged into one HTML report. Failed tests retry twice, with a trace on the first retry. Each job uses one worker and at most four jobs run at once, because the site is shared.
 
-## Documentation
+## Stability
 
-- [TEST_STRATEGY.md](TEST_STRATEGY.md): scope, risk-based priorities, test levels, environments and data, pipeline, entry and exit criteria, and the flakiness policy.
-- [CONTRIBUTING.md](CONTRIBUTING.md): how to add a test, page object, accessibility or visual check, with the review checklist.
-- [CODING_STANDARDS.md](CODING_STANDARDS.md): the rules, with examples. ESLint and the TypeScript compiler enforce most of them.
+On 16 October 2026, 620 runs across the four browser projects (`--repeat-each=5`, no retries, two workers, from a laptop) passed 598 times, or 96.5%, in 17.5 minutes. All 22 failures came from the shared server: mostly Cloudflare 520 pages, plus dropped connections and timeouts. Two were orders invoiced with a total of 0. Investigating them turned up a site defect: [the invoice amount is taken from the URL](docs/bugs/invoice-amount-from-url.md). The visual project passed 20 of 20.
+
+The invoice download test is skipped on Linux WebKit, because that build opens attachments inline instead of downloading them. It runs on macOS WebKit, the engine real Safari uses.
+
+## Notes for reviewers
+
+- **AI-assisted, human-owned.** I built this with Claude Code, and [CLAUDE.md](CLAUDE.md) is committed on purpose. It's the brief I give the assistant: standards, site quirks and the rules it must follow. I make every design decision and review every change, and I can explain any of them. Teams now work this way, and writing a brief that keeps an AI's output consistent is part of the job.
+- **`authenticatedTest` has one user so far.** Most logged-in journeys here change the cart or the account, so each needs its own `testUser`. The worker session is for read-only logged-in checks, which would grow first on a real product. It shows the pattern: log in through the UI once per worker, and use one account per worker because the cart belongs to the account.
+- **Why automationexercise.com.** It's a common practice target, which makes the comparison fair: the same site, judged on engineering. It's also hostile in realistic ways (ads, consent banners, survey popups, a shared and unreliable server), which is where suites usually turn flaky. The test count stays small on purpose, because the strategy puts unit and API coverage below E2E.
+
+## Further reading
+
+- [TEST_STRATEGY.md](TEST_STRATEGY.md): scope, risks, pipeline and the flakiness policy.
+- [CONTRIBUTING.md](CONTRIBUTING.md): how to add tests, page objects and checks.
+- [CODING_STANDARDS.md](CODING_STANDARDS.md): the rules, with examples.
 
 ## License
 

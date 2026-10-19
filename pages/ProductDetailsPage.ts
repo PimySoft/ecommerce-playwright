@@ -1,12 +1,8 @@
-import { Page, Locator } from '@playwright/test';
+import { Locator } from '@playwright/test';
 import { BasePage } from './BasePage';
 import { CartModal } from './components/CartModal';
 
 export class ProductDetailsPage extends BasePage {
-  constructor(page: Page) {
-    super(page);
-  }
-
   // ========== SELECTORS ==========
 
   // The details panel has no landmark or heading that contains all of its fields.
@@ -38,11 +34,6 @@ export class ProductDetailsPage extends BasePage {
     return this.detailParagraph('Brand');
   }
 
-  // Each detail is a paragraph whose label is in a nested <b>, so getByText alone would match only the label.
-  private detailParagraph(label: string): Locator {
-    return this.productInformation.getByRole('paragraph').filter({ hasText: new RegExp(`^${label}:`) });
-  }
-
   get quantityInput(): Locator {
     return this.productInformation.getByRole('spinbutton');
   }
@@ -54,6 +45,11 @@ export class ProductDetailsPage extends BasePage {
 
   get cartModal(): CartModal {
     return new CartModal(this.page);
+  }
+
+  // Each detail is a paragraph whose label is in a nested <b>, so getByText alone would match only the label.
+  private detailParagraph(label: string): Locator {
+    return this.productInformation.getByRole('paragraph').filter({ hasText: new RegExp(`^${label}:`) });
   }
 
   // ========== ACTIONS ==========

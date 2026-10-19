@@ -86,7 +86,7 @@ test-data/
   pull_request_template.md   # review checklist
   CODEOWNERS
 TEST_STRATEGY.md         # scope, risks, levels, environments, pipeline, entry/exit criteria, flakiness policy
-CONTRIBUTING.md          # how to add a test, page object, a11y or visual check; checklist
+CONTRIBUTING.md          # how to add a test, page object, a11y or visual check
 ```
 
 ### How a test gets its page
@@ -118,7 +118,7 @@ test('should display login form', async ({ loginPage }) => {
 Full rules with examples are in [CODING_STANDARDS.md](CODING_STANDARDS.md). They are mandatory, because they are what this project showcases. In short:
 
 1. **Locators are getters.** Use `get x(): Locator`, never `readonly` fields or `const`. Locators that take a parameter are methods returning `Locator` (e.g. `cartItemRow(name)`).
-2. **Selectors, then actions.** Page objects group getters under `// ========== SELECTORS ==========` and methods under `// ========== ACTIONS ==========`. Every page extends `BasePage` with `constructor(page: Page) { super(page); }`.
+2. **Selectors, then actions.** Page objects group getters under `// ========== SELECTORS ==========` and methods under `// ========== ACTIONS ==========`. Every page extends `BasePage` and inherits its constructor.
 3. **Locator priority:** `getByRole` → `getByLabel` → `getByText` → `getByPlaceholder` → `getByTestId` / `getByTitle` / `getByAltText` → `page.locator()` CSS as a last resort, scoped under a semantic locator where possible, with a comment saying why. One deterministic locator per element: **no `.or()` fallback chains, no `.first()`/`.nth()` to hide ambiguity**, and exact names (`{ name: 'Login', exact: true }`) instead of loose regexes. `testIdAttribute` is set to the site's `data-qa` hooks. No XPath.
 4. **Community standards:**
    - Group tests with `test.describe()`.

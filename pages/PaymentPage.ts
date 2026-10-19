@@ -1,18 +1,10 @@
-import { Page, Locator } from '@playwright/test';
+import { Locator } from '@playwright/test';
 import { BasePage } from './BasePage';
 import { OrderConfirmationPage } from './OrderConfirmationPage';
 import { PaymentCard } from '../test-data/TestDataFactory';
 
 export class PaymentPage extends BasePage {
-  constructor(page: Page) {
-    super(page);
-  }
-
   // ========== SELECTORS ==========
-
-  get paymentHeading(): Locator {
-    return this.page.getByRole('heading', { name: 'Payment', exact: true });
-  }
 
   // The card fields' labels are not associated with them, so they are located by the site's test hooks.
   get nameOnCardInput(): Locator {
