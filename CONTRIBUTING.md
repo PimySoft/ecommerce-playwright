@@ -4,7 +4,7 @@ How to add to the suite. The rules are in [CODING_STANDARDS.md](CODING_STANDARDS
 
 ## Workflow
 
-1. Run `npm ci` and `npx playwright install`. Docker is needed only for visual tests.
+1. Run `npm ci` and `npx playwright install`, plus `npx playwright install chrome` if Google Chrome isn't installed. Docker is needed only for visual tests.
 2. Branch off `main` with a conventional prefix: `feat/`, `fix/`, `test/`, `refactor/`, `docs/` or `ci/`.
 3. Find locators with `npx playwright codegen https://automationexercise.com` or the picker in UI mode (`npx playwright test --ui`).
 4. Run `npm run typecheck`, `npm run lint` and the affected spec on Chrome with `--repeat-each=3`.

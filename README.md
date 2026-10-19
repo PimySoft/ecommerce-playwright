@@ -10,6 +10,7 @@ Browser end-to-end tests for the demo shop [automationexercise.com](https://auto
 ```bash
 npm ci
 npx playwright install        # add --with-deps on Linux
+npx playwright install chrome # only if Google Chrome isn't installed; the chrome project uses it
 npm run test:chrome           # one browser
 npm test                      # every project
 npm run test:smoke            # what pull requests run
@@ -93,7 +94,7 @@ Shards' reports are merged into one HTML report. Failed tests retry twice, with 
 
 ## Stability
 
-On 16 October 2026, 620 runs across the four browser projects (`--repeat-each=5`, no retries) passed 598 times, or 96.5%, in 17.5 minutes. All 22 failures came from the shared server: mostly Cloudflare 520 pages, plus dropped connections and timeouts. Two of them were orders invoiced with a total of 0 during those errors. The visual project passed 20 of 20.
+On 16 October 2026, 620 runs across the four browser projects (`--repeat-each=5`, no retries, two workers, from a laptop) passed 598 times, or 96.5%, in 17.5 minutes. All 22 failures came from the shared server: mostly Cloudflare 520 pages, plus dropped connections and timeouts. Two of them were orders invoiced with a total of 0 during those errors. The visual project passed 20 of 20.
 
 ## Further reading
 
