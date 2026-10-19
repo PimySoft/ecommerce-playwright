@@ -61,7 +61,11 @@ test.describe('Checkout', () => {
     });
   });
 
-  test('should download an invoice naming the buyer and the order total', { tag: '@regression' }, async ({ loginPage, testUser }) => {
+  test('should download an invoice naming the buyer and the order total', { tag: '@regression' }, async ({ loginPage, testUser, browserName }) => {
+    // The site sends the invoice as an attachment, but Playwright's Linux WebKit build renders it inline, so no
+    // download event fires. It downloads on macOS WebKit, the engine real Safari uses. Reproduced in the CI image.
+    test.skip(browserName === 'webkit' && process.platform === 'linux', 'Linux WebKit opens attachments inline instead of downloading them');
+
     const product = TestDataFactory.getProducts().blueTop;
 
     const confirmationPage = await test.step('Place an order', async () => {

@@ -94,7 +94,15 @@ Shards' reports are merged into one HTML report. Failed tests retry twice, with 
 
 ## Stability
 
-On 16 October 2026, 620 runs across the four browser projects (`--repeat-each=5`, no retries, two workers, from a laptop) passed 598 times, or 96.5%, in 17.5 minutes. All 22 failures came from the shared server: mostly Cloudflare 520 pages, plus dropped connections and timeouts. Two of them were orders invoiced with a total of 0 during those errors. The visual project passed 20 of 20.
+On 16 October 2026, 620 runs across the four browser projects (`--repeat-each=5`, no retries, two workers, from a laptop) passed 598 times, or 96.5%, in 17.5 minutes. All 22 failures came from the shared server: mostly Cloudflare 520 pages, plus dropped connections and timeouts. Two were orders invoiced with a total of 0. Investigating them turned up a site defect: [the invoice amount is taken from the URL](docs/bugs/invoice-amount-from-url.md). The visual project passed 20 of 20.
+
+The invoice download test is skipped on Linux WebKit, because that build opens attachments inline instead of downloading them. It runs on macOS WebKit, the engine real Safari uses.
+
+## Notes for reviewers
+
+- **AI-assisted, human-owned.** I built this with Claude Code, and [CLAUDE.md](CLAUDE.md) is committed on purpose. It's the brief I give the assistant: standards, site quirks and the rules it must follow. I make every design decision and review every change, and I can explain any of them. Teams now work this way, and writing a brief that keeps an AI's output consistent is part of the job.
+- **`authenticatedTest` has one user so far.** Most logged-in journeys here change the cart or the account, so each needs its own `testUser`. The worker session is for read-only logged-in checks, which would grow first on a real product. It shows the pattern: log in through the UI once per worker, and use one account per worker because the cart belongs to the account.
+- **Why automationexercise.com.** It's a common practice target, which makes the comparison fair: the same site, judged on engineering. It's also hostile in realistic ways (ads, consent banners, survey popups, a shared and unreliable server), which is where suites usually turn flaky. The test count stays small on purpose, because the strategy puts unit and API coverage below E2E.
 
 ## Further reading
 
