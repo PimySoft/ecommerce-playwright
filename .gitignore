@@ -16,3 +16,6 @@ dist/
 /results.json
 # /review-tests input and findings, and worktrees of reviewed pull requests
 /.review/
+# /test-from-ticket tickets and plans, and failure-proof sabotages, which are never committed
+/.plans/
+/.proof/

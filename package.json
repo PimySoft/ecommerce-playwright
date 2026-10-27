@@ -24,7 +24,12 @@
     "review:prepare": "bash scripts/review/prepare-review.sh",
     "review:report": "tsx scripts/report-review-findings.ts",
     "review:feedback": "tsx scripts/review-feedback.ts",
-    "eval:test-reviewer": "tsx scripts/eval-test-reviewer.ts"
+    "eval:test-reviewer": "tsx scripts/eval-test-reviewer.ts",
+    "plan:report": "tsx scripts/report-test-plan.ts",
+    "plan:check-approval": "tsx scripts/check-plan-approval.ts",
+    "proof:verify": "tsx scripts/verify-failure-proof.ts",
+    "eval:test-planner": "tsx scripts/eval-test-planner.ts",
+    "eval:failure-proof": "tsx scripts/eval-failure-proof.ts"
   },
   "keywords": [
     "playwright",

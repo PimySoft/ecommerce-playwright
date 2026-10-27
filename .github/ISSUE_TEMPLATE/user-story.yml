@@ -1,0 +1,42 @@
+name: User story
+description: A Jira-style story for the test-planner agent. Only the owner's demo-story label makes it readable to agents.
+title: "Story: "
+labels: []
+body:
+  - type: input
+    id: summary
+    attributes:
+      label: Summary
+      description: One line, as a Jira summary.
+    validations:
+      required: true
+  - type: textarea
+    id: story
+    attributes:
+      label: User story
+      placeholder: As a <user>, I want <goal>, so that <reason>.
+    validations:
+      required: true
+  - type: textarea
+    id: criteria
+    attributes:
+      label: Acceptance criteria
+      description: One observable outcome per line, as a list. The approved plan is tied to this text, so editing it withdraws the approval.
+      placeholder: |
+        - Given …, when …, then …
+    validations:
+      required: false
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options: [High, Medium, Low]
+    validations:
+      required: true
+  - type: input
+    id: component
+    attributes:
+      label: Component
+      placeholder: Cart, Checkout, Products, Account, Contact …
+    validations:
+      required: true

@@ -46,6 +46,13 @@ npm run history:push-agent-runs        # publish .agent-runs/ (SessionEnd hook o
 
 npm run review:feedback                # 👍/👎 on posted test-reviewer findings → acceptance per rule and prompt version
 npm run eval:test-reviewer -- --findings .review/<target>/findings.json   # score a review of the seeded bad test
+
+npm run plan:report -- --plan .plans/<target>/plan.json [--post true]   # validate a test plan; post it to its Issue
+npm run plan:check-approval -- --issue <n> [--apply true]  # is plan-approved still valid for the current ticket?
+npm run proof:verify -- --proof .proof/<target>/proof.json  # failure proof: each test must fail at its named assertion
+npm run eval:test-planner              # score planner runs on the golden tickets
+npm run eval:failure-proof             # the proof must pass a sound test and catch a test that can't fail (live site)
+bash scripts/planner/create-labels.sh  # create the ticket-workflow labels on the repo
 ```
 
 ## Configuration (`playwright.config.ts`)
@@ -85,12 +92,24 @@ scripts/
   report-review-findings.ts  # validates and prints findings, or posts each to a PR (--pr) for 👍/👎
   review-feedback.ts       # acceptance of posted findings from the reviewer's reactions
   eval-test-reviewer.ts    # scores a review against the issues planted in the seeded bad test
+  planner/ticket.ts        # ticket source: demo-story Issues through gh, or Markdown eval tickets
+  planner/plan.ts          # test-plan schema, validation, plan comment and approval hash
+  planner/prepare-ticket.ts  # writes .plans/<target>/ticket.json for /test-from-ticket
+  report-test-plan.ts      # validates and prints a plan, or posts it to its Issue (--post) and sets labels
+  check-plan-approval.ts   # plan-approved is valid only for the hash of the current criteria and plan
+  verify-failure-proof.ts  # runs each test with its sabotage; passes only a failure at the named assertion
+  eval-test-planner.ts  eval-failure-proof.ts
 .claude/
   settings.json          # registers the SessionEnd hook
   agents/test-reviewer.md  # read-only standards reviewer; returns findings as JSON
+  agents/test-planner.md   # read-only planner: ticket → coverage map, tests with fails-if lines, or questions
   skills/review-tests/   # /review-tests [--pr <n>] [path...]
+  skills/test-from-ticket/  # /test-from-ticket <issue | ticket.md>
 agents/
+  autonomy.md            # each agent action's autonomy level and evidence
   evals/test-reviewer/   # seeded bad test and page object (lint-clean), planted.json lists their issues
+  evals/test-planner/    # golden tickets and the decision expected for each
+  evals/failure-proof/   # seeded tests, sabotages and the verdict expected for each proof
 tests/
   fixtures.ts            # `test`, `authenticatedTest`, `expect`; page setup, page-object, account and a11y fixtures
   <feature>.spec.ts      # one spec per feature area
@@ -201,6 +220,8 @@ Also enforced:
 
 The design and phases are in `AgentsPlan.md`. Built so far:
 - **`test-reviewer`** (`/review-tests`): reviews test code against CODING_STANDARDS.md for what ESLint and `tsc` can't catch, in a fresh, read-only context. Each finding cites a rule: `CS-<n>` for a CODING_STANDARDS.md section, or `SITE`, `DUPLICATE`, `PROOF`, `CRITERION`. With `--pr <n>` each finding is posted as its own PR comment, and QA's 👍/👎 feed `npm run review:feedback`. Findings are advisory: no required check runs the reviewer. Autonomy: L2 (advisory comments); style fixes reach L3 at 95% of 20+ rated findings accepted.
+- **`test-planner`** (`/test-from-ticket <n>`): reads a `demo-story` Issue (the template is `.github/ISSUE_TEMPLATE/user-story.yml`) and returns a coverage map, the tests to write with a "fails if" line each, and up to five suggestions beyond the ticket. Its clarification gate blocks with questions instead of guessing. The plan is posted with a hash of the criteria and plan, and QA approves by adding `plan-approved`; `check-plan-approval.ts` withdraws the approval if either changes. Once approved, the skill writes the tests with an `issue` annotation, runs the failure proof, then `/review-tests`. Autonomy and evidence: `agents/autonomy.md`.
+- **Failure proof:** `tests/fixtures.ts` applies the module in `FAILURE_PROOF_SABOTAGE` to the page before the test acts. `verify-failure-proof.ts` sets it; normal runs never do. Sabotages live in the git-ignored `.proof/` and change values, never remove elements. The script, not the model, decides whether a proof passed.
 - The seeded files in `agents/evals/` are deliberately bad and are linted like real tests to prove their issues pass ESLint. Don't fix them. `/review-tests` on a branch or PR skips them; review them by path. After changing the reviewer's prompt, rerun `/review-tests agents/evals/test-reviewer/seeded` and `npm run eval:test-reviewer`, and attach the result to the PR.
 
 ## Secrets

@@ -1,6 +1,6 @@
 # Agents Plan
 
-How AI agents would turn tickets into tests, prove those tests can fail, review them, point out what a change puts at risk, track CI trends and keep the suite relevant, with QA reviewing where it matters most. Nothing is built yet.
+How AI agents would turn tickets into tests, prove those tests can fail, review them, point out what a change puts at risk, track CI trends and keep the suite relevant, with QA reviewing where it matters most. Phases 1, 2 and 4 (lean) are built; the rest is design.
 
 The short version: **agents own the *how*; QA owns the *what*, and anything that removes coverage.** Each agent starts at a low level of autonomy and moves up only on measured evidence.
 
@@ -358,6 +358,8 @@ Each phase is one PR, and none of them uses credits. History goes first, because
    - the evals and `agents/autonomy.md`.
 
    Needs phase 2. Done when all evals pass, the seeded test that can't fail is caught, and one Issue shows clarification, plan approval, a failure-proof table and a merged PR.
+
+   **Built (lean):** the template, `test-planner`, the gate, plan hash and approval check, `/test-from-ticket`, annotations, the failure proof, six golden tickets, the failure-proof eval and `agents/autonomy.md`. Left for later: the seeded `demo-story` Issues and the end-to-end Issue trail (open question 1), Playwright MCP browsing in the planner, and re-checking approval on `issues: edited` (phase 6). The sabotage is applied by the page fixture rather than a copy of the test, so line numbers hold.
 5. **Trends and site drift.** Delivers `ci-analyst`, `/ci-trends`, environmental classification, flakiness proposals and the nightly site snapshot. Needs phase 1 plus two weeks of data. Done when the first report matches a hand check of the same runs.
 6. **Unattended loop and metrics.** Delivers the label-driven Actions (or the `/loop` fallback), failure handling and the kill switch, the nightly `/ci-trends`, `scripts/agent-metrics.ts` and the metrics page. Needs phases 4 and 5. Done when one ticket goes from label to merged test with only the two QA approvals in between, and an edited ticket correctly loses its plan approval.
 7. **Relevance.** Delivers relevance proposals, as a section of `/ci-trends` or a separate curator. Needs phases 3, 4 and 5. Done when one proposal has been discussed and acted on.

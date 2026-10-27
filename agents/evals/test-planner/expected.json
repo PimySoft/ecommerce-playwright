@@ -1,0 +1,11 @@
+{
+  "about": "What test-planner must decide for each ticket in tickets/. blocked is whether the clarification gate stops writing. reasons are gate reasons that must each appear in a question. coverage gives the allowed statuses per criterion. minTests and maxTests bound the tests proposed for the ticket itself, not the suggestions.",
+  "tickets": [
+    { "file": "clear.md", "blocked": false, "reasons": [], "coverage": { "1": ["missing"], "2": ["covered"] }, "minTests": 1, "maxTests": 1 },
+    { "file": "ambiguous.md", "blocked": true, "reasons": ["no-observable-outcome"], "coverage": { "1": ["unclear"], "2": ["unclear"] }, "minTests": 0, "maxTests": 0 },
+    { "file": "no-criteria.md", "blocked": true, "reasons": ["no-criteria"], "coverage": {}, "minTests": 0, "maxTests": 0 },
+    { "file": "out-of-scope.md", "blocked": true, "reasons": ["out-of-scope"], "coverage": { "1": ["out-of-scope"], "2": ["covered"] }, "minTests": 0, "maxTests": 0 },
+    { "file": "site-conflict.md", "blocked": true, "reasons": ["site-conflict"], "coverage": { "1": ["conflicts-with-site"] }, "minTests": 0, "maxTests": 0 },
+    { "file": "overlap.md", "blocked": false, "reasons": [], "coverage": { "1": ["covered"], "2": ["covered"] }, "minTests": 0, "maxTests": 0 }
+  ]
+}
