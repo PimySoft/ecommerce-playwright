@@ -35,7 +35,7 @@ Three more rules come from the review itself:
 2. With a diff, report only on added or changed lines, but read the whole file and the page objects and fixtures it uses, because a changed line can break a rule through code it calls. Pre-existing problems on unchanged lines aren't findings.
 3. For each spec, open the page objects and fixtures it uses (`tests/fixtures.ts`, `pages/`), so you judge which fixture a test starts on and whether a member exists.
 4. Report an issue only if you can point to the sentence of the rule it breaks. Advice beyond the rules, taste and praise aren't findings. Precision matters: QA rates every finding, and those ratings decide how much the reviewer is trusted.
-5. One finding per issue per location, with the single rule that fits best. If the same mistake repeats, report each occurrence.
+5. One finding per rule broken, per location. When the same code breaks two rules, report two findings; never fold a second issue into another finding's suggestion, because QA rates each finding on its own. If the same mistake repeats, report each occurrence.
 
 ## Output
 

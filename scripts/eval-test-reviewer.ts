@@ -1,5 +1,6 @@
 // Scores a test-reviewer run on the seeded bad test. Every planted issue must be caught by a finding in its file, with
-// one of its rules, on or near its lines. Findings that match nothing are listed for a hand check: some may be real.
+// one of its rules, on or near its lines. Incidental issues (`required: false`) are scored as recall only, because
+// runs vary in which of them they report. Findings that match nothing are listed for a hand check: some may be real.
 // Usage: tsx scripts/eval-test-reviewer.ts --findings <file> [--planted agents/evals/test-reviewer/planted.json]
 import fs from 'fs';
 import path from 'path';
@@ -16,6 +17,7 @@ interface PlantedIssue {
   file: string;
   anchor: string;
   through?: string;
+  required?: boolean;
   planted: string;
 }
 
@@ -50,15 +52,22 @@ if (require.main === module) {
     return { issue, match };
   });
 
-  console.log('| Planted issue | Rule | Caught by |\n|---|---|---|');
+  console.log('| Issue | Kind | Rule | Caught by |\n|---|---|---|---|');
   for (const { issue, match } of results) {
-    console.log(`| ${issue.id} | ${issue.rules.join(' / ')} | ${match ? `${match.rule} at line ${match.line}` : '**missed**'} |`);
+    const kind = issue.required === false ? 'incidental' : 'planted';
+    console.log(`| ${issue.id} | ${kind} | ${issue.rules.join(' / ')} | ${match ? `${match.rule} at line ${match.line}` : '**missed**'} |`);
   }
-  const caught = results.filter((result) => result.match).length;
-  console.log(`\nCaught ${caught} of ${planted.length} planted issues.`);
+  const required = results.filter(({ issue }) => issue.required !== false);
+  const incidental = results.filter(({ issue }) => issue.required === false);
+  const caught = required.filter((result) => result.match).length;
+  console.log(`\nCaught ${caught} of ${required.length} planted issues.`);
+  if (incidental.length > 0) {
+    const found = incidental.filter((result) => result.match).length;
+    console.log(`Incidental recall: ${found} of ${incidental.length} (${Math.round((found / incidental.length) * 100)}%).`);
+  }
   if (unmatched.size > 0) {
     console.log(`\n${unmatched.size} finding(s) match no planted issue. Check each by hand: a real issue or a false positive?`);
     for (const finding of unmatched) console.log(`- ${finding.file}:${finding.line} ${finding.rule}: ${finding.summary}`);
   }
-  if (caught < planted.length) process.exitCode = 1;
+  if (caught < required.length) process.exitCode = 1;
 }
