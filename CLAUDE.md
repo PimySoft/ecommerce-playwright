@@ -43,6 +43,9 @@ npm run history:collect -- --report results.json --out <dir>     # JSON report �
 npm run history:summarise -- --history <dir> [--out f.json]      # per-test 7/30-day pass, flaky, duration, trend
 npm run history:trends -- --history <dir> --out <file.html>      # trend page published at <report>/trends/
 npm run history:push-agent-runs        # publish .agent-runs/ (SessionEnd hook output) to ci-history
+
+npm run review:feedback                # 👍/👎 on posted test-reviewer findings → acceptance per rule and prompt version
+npm run eval:test-reviewer -- --findings .review/<target>/findings.json   # score a review of the seeded bad test
 ```
 
 ## Configuration (`playwright.config.ts`)
@@ -77,8 +80,17 @@ scripts/
   record-agent-run.ts      # SessionEnd hook: records sessions that used a project agent or skill
   history-branch.sh        # checkout/push the ci-history branch through a worktree, creating it if missing
   push-agent-runs.sh       # publishes .agent-runs/ to ci-history
+  review/prepare-review.sh  # collects a /review-tests target into .review/<target>/ (files, diff, root)
+  review/findings.ts       # findings schema and validation; rules are the CODING_STANDARDS.md headings
+  report-review-findings.ts  # validates and prints findings, or posts each to a PR (--pr) for 👍/👎
+  review-feedback.ts       # acceptance of posted findings from the reviewer's reactions
+  eval-test-reviewer.ts    # scores a review against the issues planted in the seeded bad test
 .claude/
   settings.json          # registers the SessionEnd hook
+  agents/test-reviewer.md  # read-only standards reviewer; returns findings as JSON
+  skills/review-tests/   # /review-tests [--pr <n>] [path...]
+agents/
+  evals/test-reviewer/   # seeded bad test and page object (lint-clean), planted.json lists their issues
 tests/
   fixtures.ts            # `test`, `authenticatedTest`, `expect`; page setup, page-object, account and a11y fixtures
   <feature>.spec.ts      # one spec per feature area
@@ -184,6 +196,12 @@ Also enforced:
 ## CI history
 
 `ci-history` is an orphan, data-only branch that is never merged. Each CI run (pull requests from forks excepted) adds `test-runs/<yyyy>/<mm>/<time>-<run>-<attempt>.jsonl`, and agent sessions add `agent-runs/…`. Writers only add files, so concurrent pushes just rebase. Only the `record-history` job has `contents: write`. Metrics are computed by these scripts, never by a model. The trend page and summary leave out pull-request runs, because those test unmerged code. A session's agent-run record waits in the git-ignored `.agent-runs/` until `npm run history:push-agent-runs`; ordinary sessions that use no project agent or skill aren't recorded.
+
+## Agents
+
+The design and phases are in `AgentsPlan.md`. Built so far:
+- **`test-reviewer`** (`/review-tests`): reviews test code against CODING_STANDARDS.md for what ESLint and `tsc` can't catch, in a fresh, read-only context. Each finding cites a rule: `CS-<n>` for a CODING_STANDARDS.md section, or `SITE`, `DUPLICATE`, `PROOF`, `CRITERION`. With `--pr <n>` each finding is posted as its own PR comment, and QA's 👍/👎 feed `npm run review:feedback`. Findings are advisory: no required check runs the reviewer. Autonomy: L2 (advisory comments); style fixes reach L3 at 95% of 20+ rated findings accepted.
+- The seeded files in `agents/evals/` are deliberately bad and are linted like real tests to prove their issues pass ESLint. Don't fix them. `/review-tests` on a branch or PR skips them; review them by path. After changing the reviewer's prompt, rerun `/review-tests agents/evals/test-reviewer/seeded` and `npm run eval:test-reviewer`, and attach the result to the PR.
 
 ## Secrets
 

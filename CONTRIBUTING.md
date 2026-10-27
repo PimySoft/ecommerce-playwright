@@ -8,7 +8,8 @@ How to add to the suite. The rules are in [CODING_STANDARDS.md](CODING_STANDARDS
 2. Branch off `main` with a conventional prefix: `feat/`, `fix/`, `test/`, `refactor/`, `docs/` or `ci/`.
 3. Find locators with `npx playwright codegen https://automationexercise.com` or the picker in UI mode (`npx playwright test --ui`).
 4. Run `npm run typecheck`, `npm run lint` and the affected spec on Chrome with `--repeat-each=3`.
-5. Commit with a conventional message, such as `test: cover guest checkout prompt`, and open a PR. The template holds the review checklist.
+5. Optionally run `/review-tests` in Claude Code for the standards ESLint can't check. On a PR, `/review-tests --pr <n>` posts each finding as a comment; react 👍 if it's right or 👎 if it isn't, so the reviewer's acceptance rate stays honest.
+6. Commit with a conventional message, such as `test: cover guest checkout prompt`, and open a PR. The template holds the review checklist.
 
 ## Add a test
 

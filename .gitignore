@@ -14,3 +14,5 @@ dist/
 /.agent-runs/
 # Merged JSON report, input to the history collector
 /results.json
+# /review-tests input and findings, and worktrees of reviewed pull requests
+/.review/

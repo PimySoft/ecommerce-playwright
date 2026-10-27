@@ -3,7 +3,7 @@ import tseslint from 'typescript-eslint';
 import playwright from 'eslint-plugin-playwright';
 
 export default tseslint.config(
-  { ignores: ['node_modules/', 'playwright-report/', 'test-results/'] },
+  { ignores: ['node_modules/', 'playwright-report/', 'test-results/', '.review/'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -18,7 +18,8 @@ export default tseslint.config(
     },
   },
   {
-    files: ['tests/**/*.ts'],
+    // Seeded eval specs face the same rules as real ones, so the issues planted in them are ones only review can catch.
+    files: ['tests/**/*.ts', 'agents/evals/**/*.spec.ts'],
     ...playwright.configs['flat/recommended'],
     rules: {
       ...playwright.configs['flat/recommended'].rules,
@@ -36,7 +37,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['pages/**/*.ts'],
+    files: ['pages/**/*.ts', 'agents/evals/**/*Page.ts'],
     plugins: { playwright },
     rules: {
       'playwright/no-wait-for-timeout': 'error',
