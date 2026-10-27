@@ -47,7 +47,7 @@ There is one environment, the public production site. It is shared and can chang
 Every test has exactly one tier tag. `@smoke` covers the few journeys that prove the site is usable and must stay fast. `@regression` is everything else. `@a11y` and `@visual` group the non-functional checks.
 
 - **Pull request:** static checks, then `@smoke` on Chrome.
-- **Push to `main`:** every project, sharded, plus the visual job. The report is published to GitHub Pages.
+- **Push to `main`:** every project, sharded, plus the visual job. The report is published to GitHub Pages, with a trend page built from every recorded run on the `ci-history` branch.
 - **Nightly:** the same as `main`. A failure opens or updates an Issue.
 - **Manual:** a chosen project and tag, for investigation.
 

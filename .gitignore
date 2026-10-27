@@ -9,3 +9,8 @@ dist/
 
 /blob-report/
 /all-blob-reports/
+
+# Agent-run records waiting for `npm run history:push-agent-runs`
+/.agent-runs/
+# Merged JSON report, input to the history collector
+/results.json

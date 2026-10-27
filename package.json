@@ -16,7 +16,11 @@
     "test:visual:update": "bash scripts/run-visual-in-docker.sh --update-snapshots",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "lint:fix": "eslint . --fix"
+    "lint:fix": "eslint . --fix",
+    "history:collect": "tsx scripts/collect-test-history.ts",
+    "history:summarise": "tsx scripts/summarise-test-history.ts",
+    "history:trends": "tsx scripts/render-trend-page.ts",
+    "history:push-agent-runs": "bash scripts/push-agent-runs.sh"
   },
   "keywords": [
     "playwright",
@@ -35,6 +39,7 @@
     "dotenv": "^17.2.3",
     "eslint": "^9.39.5",
     "eslint-plugin-playwright": "^2.12.1",
+    "tsx": "4.19.2",
     "typescript": "^5.3.3",
     "typescript-eslint": "^8.71.2"
   }
