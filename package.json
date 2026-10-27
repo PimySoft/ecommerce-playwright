@@ -20,7 +20,11 @@
     "history:collect": "tsx scripts/collect-test-history.ts",
     "history:summarise": "tsx scripts/summarise-test-history.ts",
     "history:trends": "tsx scripts/render-trend-page.ts",
-    "history:push-agent-runs": "bash scripts/push-agent-runs.sh"
+    "history:push-agent-runs": "bash scripts/push-agent-runs.sh",
+    "review:prepare": "bash scripts/review/prepare-review.sh",
+    "review:report": "tsx scripts/report-review-findings.ts",
+    "review:feedback": "tsx scripts/review-feedback.ts",
+    "eval:test-reviewer": "tsx scripts/eval-test-reviewer.ts"
   },
   "keywords": [
     "playwright",
