@@ -1,3 +1,4 @@
+import path from 'path';
 import { test as base, expect, BrowserContext, Page, Locator } from '@playwright/test';
 import { AccountApiClient } from '../api/AccountApiClient';
 import { AccessibilityScanner } from '../accessibility/AccessibilityScanner';
@@ -41,6 +42,17 @@ function getGoogleSurveyDialog(page: Page): Locator {
 
 // ========== ACTIONS ==========
 
+// Set only by scripts/verify-failure-proof.ts, which breaks one behaviour before the test acts to show the test then
+// fails at its assertion.
+async function applyFailureProofSabotage(page: Page): Promise<void> {
+  const file = process.env.FAILURE_PROOF_SABOTAGE;
+  if (!file) return;
+  // require, not import(), because only require goes through Playwright's TypeScript transform.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { sabotage } = require(path.resolve(file)) as { sabotage: (page: Page) => Promise<void> };
+  await sabotage(page);
+}
+
 async function preparePage(page: Page): Promise<void> {
   // Third-party ads inject full-screen interstitials and delay the load event; they are not under test.
   await page.route(AD_NETWORK_URLS, (route) => route.abort());
@@ -61,6 +73,7 @@ async function preparePage(page: Page): Promise<void> {
 export const test = base.extend<TestFixtures>({
   page: async ({ page }, use) => {
     await preparePage(page);
+    await applyFailureProofSabotage(page);
     await use(page);
   },
 

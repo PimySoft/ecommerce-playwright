@@ -11,6 +11,14 @@ How to add to the suite. The rules are in [CODING_STANDARDS.md](CODING_STANDARDS
 5. Optionally run `/review-tests` in Claude Code for the standards ESLint can't check. On a PR, `/review-tests --pr <n>` posts each finding as a comment; react 👍 if it's right or 👎 if it isn't, so the reviewer's acceptance rate stays honest.
 6. Commit with a conventional message, such as `test: cover guest checkout prompt`, and open a PR. The template holds the review checklist.
 
+## Start from a ticket
+
+1. Open an Issue from the **User story** template, with one observable outcome per acceptance criterion. Only the owner's `demo-story` label lets agents read it.
+2. Run `/test-from-ticket <n>` in Claude Code. It either asks questions on the Issue (`needs-clarification`) or posts a plan (`plan-review`).
+3. **QA approves the plan:** read the coverage map and each test's "fails if" line, reply with the IDs of any suggestions to include, then add `plan-approved`. Editing the criteria afterwards withdraws the approval.
+4. Run `/test-from-ticket <n>` again to write the tests, prove each can fail, and review them.
+5. **Read the failure-proof table in the PR.** Each row names the break the test must catch, the sabotage that simulated it, and where the test failed. ✅ means it failed at the intended assertion. Review the code of any ❌ test in full: it passed with the behaviour broken, or failed somewhere else.
+
 ## Add a test
 
 1. Use the spec for the feature area in `tests/`, or create `tests/<feature>.spec.ts`.

@@ -1,0 +1,4 @@
+{
+  "about": "The verdict verify-failure-proof.ts must reach on each proof in proof.json. value-assertion is a sound test with a sound sabotage. cannot-fail asserts only that the price is visible, so a wrong price passes it. presence-sabotage deletes the element instead of changing its value.",
+  "expected": { "value-assertion": true, "cannot-fail": false, "presence-sabotage": false }
+}

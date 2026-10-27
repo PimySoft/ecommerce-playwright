@@ -1,0 +1,31 @@
+{
+  "schema": 1,
+  "config": "agents/evals/failure-proof/playwright.config.ts",
+  "project": "chrome",
+  "proofs": [
+    {
+      "id": "value-assertion",
+      "test": "agents/evals/failure-proof/seeded/seeded-proof.spec.ts:5",
+      "failsIf": "the cart doesn't show the product's price",
+      "sabotage": "Cart shows Blue Top at Rs. 499",
+      "sabotageFile": "agents/evals/failure-proof/seeded/sabotage/cart-price.ts",
+      "assertion": "agents/evals/failure-proof/seeded/seeded-proof.spec.ts:14"
+    },
+    {
+      "id": "cannot-fail",
+      "test": "agents/evals/failure-proof/seeded/seeded-proof.spec.ts:18",
+      "failsIf": "the cart doesn't show the product's price",
+      "sabotage": "Cart shows Blue Top at Rs. 499",
+      "sabotageFile": "agents/evals/failure-proof/seeded/sabotage/cart-price.ts",
+      "assertion": "agents/evals/failure-proof/seeded/seeded-proof.spec.ts:27"
+    },
+    {
+      "id": "presence-sabotage",
+      "test": "agents/evals/failure-proof/seeded/seeded-proof.spec.ts:5",
+      "failsIf": "the cart doesn't show the product's price",
+      "sabotage": "Price cell removed from the cart",
+      "sabotageFile": "agents/evals/failure-proof/seeded/sabotage/cart-price-removed.ts",
+      "assertion": "agents/evals/failure-proof/seeded/seeded-proof.spec.ts:14"
+    }
+  ]
+}
