@@ -43,6 +43,61 @@ test.describe('Shopping Cart', () => {
     });
   });
 
+  test('should keep the other products when one product is removed from the cart', {
+    tag: '@regression',
+    annotation: { type: 'issue', description: '#10' },
+  }, async ({ productsPage }) => {
+    const { blueTop, menTshirt } = TestDataFactory.getProducts();
+    const price = TestDataFactory.formatPrice(menTshirt.price);
+
+    const cartPage = await test.step('Add two products to cart', async () => {
+      await productsPage.addProductToCart(blueTop.name);
+      await productsPage.cartModal.continueShopping();
+      await productsPage.addProductToCart(menTshirt.name);
+      return productsPage.cartModal.viewCart();
+    });
+
+    await test.step('Remove the first product', async () => {
+      await cartPage.removeProduct(blueTop.name);
+    });
+
+    await test.step('Verify only the other product remains, unchanged', async () => {
+      await expect(cartPage.cartItemRow(blueTop.name)).toBeHidden();
+      await expect(cartPage.cartItemPrice(menTshirt.name)).toHaveText(price);
+      await expect(cartPage.cartItemQuantity(menTshirt.name)).toHaveText('1');
+      await expect(cartPage.cartItemTotal(menTshirt.name)).toHaveText(price);
+      await expect(cartPage.emptyCartMessage).toBeHidden();
+      await expect(cartPage.proceedToCheckoutButton).toBeVisible();
+    });
+  });
+
+  test('should keep the first product when the last-added product is removed from the cart', {
+    tag: '@regression',
+    annotation: { type: 'issue', description: '#10' },
+  }, async ({ productsPage }) => {
+    const { blueTop, menTshirt } = TestDataFactory.getProducts();
+    const price = TestDataFactory.formatPrice(blueTop.price);
+
+    const cartPage = await test.step('Add two products to cart', async () => {
+      await productsPage.addProductToCart(blueTop.name);
+      await productsPage.cartModal.continueShopping();
+      await productsPage.addProductToCart(menTshirt.name);
+      return productsPage.cartModal.viewCart();
+    });
+
+    await test.step('Remove the last-added product', async () => {
+      await cartPage.removeProduct(menTshirt.name);
+    });
+
+    await test.step('Verify only the first product remains, unchanged', async () => {
+      await expect(cartPage.cartItemRow(menTshirt.name)).toBeHidden();
+      await expect(cartPage.cartItemPrice(blueTop.name)).toHaveText(price);
+      await expect(cartPage.cartItemQuantity(blueTop.name)).toHaveText('1');
+      await expect(cartPage.cartItemTotal(blueTop.name)).toHaveText(price);
+      await expect(cartPage.emptyCartMessage).toBeHidden();
+    });
+  });
+
   test('should block checkout when the cart is empty', { tag: '@regression' }, async ({ cartPage }) => {
     await expect(cartPage.emptyCartMessage).toBeVisible();
     await expect(cartPage.proceedToCheckoutButton).toBeHidden();
