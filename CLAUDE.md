@@ -38,6 +38,11 @@ npx playwright codegen https://automationexercise.com   # discover locators
 npm run typecheck                      # tsc --noEmit
 npm run lint                           # ESLint: typescript-eslint + eslint-plugin-playwright
 npm run lint:fix
+
+npm run history:collect -- --report results.json --out <dir>     # JSON report → one record per test (CI runs this)
+npm run history:summarise -- --history <dir> [--out f.json]      # per-test 7/30-day pass, flaky, duration, trend
+npm run history:trends -- --history <dir> --out <file.html>      # trend page published at <report>/trends/
+npm run history:push-agent-runs        # publish .agent-runs/ (SessionEnd hook output) to ci-history
 ```
 
 ## Configuration (`playwright.config.ts`)
@@ -50,7 +55,7 @@ npm run lint:fix
 - `@playwright/test` is pinned to an exact version because the visual baselines depend on the browser build. CI's static checks fail if the visual job's image tag doesn't match it.
 - `snapshotPathTemplate` puts baselines in `tests/__screenshots__/<spec>/<name>.png`, without an OS suffix, since they're only ever rendered on Linux.
 - `fullyParallel: true`. On CI: `retries: 2`, `workers: 1`, and `forbidOnly`.
-- `trace: 'on-first-retry'`, `screenshot: 'only-on-failure'`. HTML reporter locally; `list` + `github` + `blob` on CI, where the workflow merges the shards' blob reports into one HTML report. The merge passes `--config` because the containerised visual job records a different test directory.
+- `trace: 'on-first-retry'`, `screenshot: 'only-on-failure'`. HTML reporter locally; `list` + `github` + `blob` on CI, where the workflow merges the shards' blob reports into one HTML report and one JSON report (`results.json`). The merge passes `--config` because the containerised visual job records a different test directory.
 - `.env` is loaded through `dotenv` if present.
 
 `eslint.config.mjs` enforces many of the standards below mechanically, including `no-floating-promises`, `no-wait-for-timeout`, `prefer-web-first-assertions`, `no-useless-not` and `no-focused-test`. CI runs `typecheck` and `lint` before the tests.
@@ -65,6 +70,15 @@ accessibility/
   AccessibilityScanner.ts  # axe-core WCAG 2.1 A/AA scan; returns violations not in the baseline
 scripts/
   run-visual-in-docker.sh  # runs the visual project in mcr.microsoft.com/playwright (amd64), like CI
+  history/records.ts       # record types for the ci-history branch (TestRecord, AgentRunRecord)
+  collect-test-history.ts  # merged JSON report → test-runs/ records
+  summarise-test-history.ts  # per-test stats and trend; the numbers ci-analyst reads
+  render-trend-page.ts     # static trend page added to the Pages report
+  record-agent-run.ts      # SessionEnd hook: records sessions that used a project agent or skill
+  history-branch.sh        # checkout/push the ci-history branch through a worktree, creating it if missing
+  push-agent-runs.sh       # publishes .agent-runs/ to ci-history
+.claude/
+  settings.json          # registers the SessionEnd hook
 tests/
   fixtures.ts            # `test`, `authenticatedTest`, `expect`; page setup, page-object, account and a11y fixtures
   <feature>.spec.ts      # one spec per feature area
@@ -82,7 +96,7 @@ test-data/
   TestDataFactory.ts     # every test input comes from here; users, addresses and cards are generated with faker
   accessibilityBaseline.ts  # known site violations per page, each with a reason
 .github/
-  workflows/playwright.yml   # CI: PR → @smoke on chrome; main + nightly → all projects (desktop 2 shards each) + visual job in Docker; report → GitHub Pages
+  workflows/playwright.yml   # CI: PR → @smoke on chrome; main + nightly → all projects (desktop 2 shards each) + visual job in Docker; record-history job appends the run to the `ci-history` branch; report + trends → GitHub Pages
   pull_request_template.md   # review checklist
   CODEOWNERS
 TEST_STRATEGY.md         # scope, risks, levels, environments, pipeline, entry/exit criteria, flakiness policy
@@ -166,6 +180,10 @@ Also enforced:
 - **Known accessibility violations** are identical in Chrome, Firefox and WebKit, so the `@a11y` tests run on every desktop project.
 - It's a shared public site. Test accounts may be created **only** through the `testUser` / `authenticatedTest` fixtures, which always delete them. Never create accounts any other way or post beyond the demo forms. Occasional slowness is normal, and it's not a reason to add waits.
 - **The API answers HTTP 200 for everything.** The real status is `responseCode` in the body, and JSON comes back as `text/html`. `AccountApiClient` handles both.
+
+## CI history
+
+`ci-history` is an orphan, data-only branch that is never merged. Each CI run (pull requests from forks excepted) adds `test-runs/<yyyy>/<mm>/<time>-<run>-<attempt>.jsonl`, and agent sessions add `agent-runs/…`. Writers only add files, so concurrent pushes just rebase. Only the `record-history` job has `contents: write`. Metrics are computed by these scripts, never by a model. The trend page and summary leave out pull-request runs, because those test unmerged code. A session's agent-run record waits in the git-ignored `.agent-runs/` until `npm run history:push-agent-runs`; ordinary sessions that use no project agent or skill aren't recorded.
 
 ## Secrets
 

@@ -3,7 +3,7 @@
 [![Playwright Tests](https://github.com/PimySoft/ecommerce-playwright/actions/workflows/playwright.yml/badge.svg?branch=main)](https://github.com/PimySoft/ecommerce-playwright/actions/workflows/playwright.yml)
 [![Test report](https://img.shields.io/badge/report-latest-2ea44f?logo=playwright)](https://pimysoft.github.io/ecommerce-playwright/)
 
-Browser end-to-end tests for the demo shop [automationexercise.com](https://automationexercise.com), in TypeScript with `@playwright/test`. The suite covers the shopper's journeys on Chrome, Firefox, WebKit and a Pixel 7, plus accessibility and visual checks. The [latest report](https://pimysoft.github.io/ecommerce-playwright/) is on GitHub Pages.
+Browser end-to-end tests for the demo shop [automationexercise.com](https://automationexercise.com), in TypeScript with `@playwright/test`. The suite covers the shopper's journeys on Chrome, Firefox, WebKit and a Pixel 7, plus accessibility and visual checks. The [latest report](https://pimysoft.github.io/ecommerce-playwright/) and [test trends](https://pimysoft.github.io/ecommerce-playwright/trends/) are on GitHub Pages.
 
 ## Quick start
 

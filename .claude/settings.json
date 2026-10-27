@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && npx --no-install tsx scripts/record-agent-run.ts"
+          }
+        ]
+      }
+    ]
+  }
+}
